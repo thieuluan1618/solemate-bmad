@@ -114,6 +114,24 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  cart-service:
+    build:
+      context: .
+      dockerfile: services/cart-service/Dockerfile
+    container_name: solemate-cart-service
+    environment:
+      - PORT=8083
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=your-access-secret-key-here
+      - JWT_REFRESH_SECRET=your-refresh-secret-key-here
+    ports:
+      - "8083:8083"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -123,7 +141,7 @@ services:
       - PORT=8000
       - USER_SERVICE_URL=user-service:8080
       - PRODUCT_SERVICE_URL=product-service:8081
-      - CART_SERVICE_URL=cart-service:8082
+      - CART_SERVICE_URL=cart-service:8083
       - ORDER_SERVICE_URL=order-service:8083
       - PAYMENT_SERVICE_URL=payment-service:8084
     ports:
@@ -131,6 +149,7 @@ services:
     depends_on:
       - user-service
       - product-service
+      - cart-service
     restart: unless-stopped
 
 volumes:

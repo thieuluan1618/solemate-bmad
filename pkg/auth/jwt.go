@@ -2,9 +2,12 @@ package auth
 
 import (
 	"errors"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -106,4 +109,50 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func JWTMiddleware(secret string) gin.HandlerFunc {
+	jwtManager := &JWTManager{
+		accessSecret: secret,
+	}
+
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+			c.Abort()
+			return
+		}
+
+		// Extract token from Bearer token
+		tokenParts := strings.Split(authHeader, " ")
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header format"})
+			c.Abort()
+			return
+		}
+
+		tokenString := tokenParts[1]
+		claims, err := jwtManager.ValidateAccessToken(tokenString)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Abort()
+			return
+		}
+
+		// Convert user ID string to UUID
+		userID, err := uuid.Parse(claims.UserID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
+			c.Abort()
+			return
+		}
+
+		// Set user information in context
+		c.Set("user_id", userID)
+		c.Set("user_email", claims.Email)
+		c.Set("user_role", claims.Role)
+
+		c.Next()
+	}
 }

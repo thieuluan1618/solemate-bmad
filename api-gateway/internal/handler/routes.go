@@ -58,9 +58,13 @@ func SetupRoutes(proxyHandler *ProxyHandler, jwtManager *auth.JWTManager) *gin.E
 			{
 				cart.GET("", proxyHandler.ProxyToCartService)
 				cart.POST("/items", proxyHandler.ProxyToCartService)
-				cart.PUT("/items/:id", proxyHandler.ProxyToCartService)
-				cart.DELETE("/items/:id", proxyHandler.ProxyToCartService)
+				cart.PATCH("/items/:item_id/quantity", proxyHandler.ProxyToCartService)
+				cart.DELETE("/items/:item_id", proxyHandler.ProxyToCartService)
 				cart.DELETE("", proxyHandler.ProxyToCartService) // Clear cart
+				cart.GET("/summary", proxyHandler.ProxyToCartService)
+				cart.GET("/count", proxyHandler.ProxyToCartService)
+				cart.POST("/extend", proxyHandler.ProxyToCartService)
+				cart.POST("/items/:item_id/discount", proxyHandler.ProxyToCartService)
 			}
 
 			// Order routes
