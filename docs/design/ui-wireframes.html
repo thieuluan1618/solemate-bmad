@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoleMate - UI/UX Wireframes & Prototypes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            background: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .nav-tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .wireframe-container {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .wireframe-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .wireframe-title {
+            font-size: 1.8rem;
+            color: #333;
+        }
+
+        .device-selector {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .device-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid #667eea;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .device-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .wireframe {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1rem;
+            background: #f8f9fa;
+            margin: 1rem 0;
+        }
+
+        .mobile-wireframe {
+            max-width: 375px;
+            margin: 0 auto;
+        }
+
+        .tablet-wireframe {
+            max-width: 768px;
+            margin: 0 auto;
+        }
+
+        /* Wireframe Components */
+        .navbar {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .logo {
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: #667eea;
+        }
+
+        .nav-items {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-item {
+            padding: 0.5rem 1rem;
+            background: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .search-bar {
+            flex: 1;
+            max-width: 400px;
+            margin: 0 2rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            background: #f8f9fa;
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 3rem 2rem;
+            color: white;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .hero-title {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .cta-button {
+            background: white;
+            color: #667eea;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            border: none;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        .cta-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .product-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .product-image {
+            height: 200px;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+        }
+
+        .product-info {
+            padding: 1rem;
+        }
+
+        .product-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-price {
+            color: #667eea;
+            font-size: 1.2rem;
+        }
+
+        .filter-section {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-title {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .filter-chip {
+            padding: 0.3rem 0.8rem;
+            background: #f0f0f0;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-chip.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .cart-preview {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item-image {
+            width: 60px;
+            height: 60px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-summary {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #eee;
+        }
+
+        .cart-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-total {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .checkout-form {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .admin-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .dashboard-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 1.5rem;
+        }
+
+        .dashboard-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 1rem 0;
+        }
+
+        .dashboard-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .table-container {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 0.8rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 0.8rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: #d4f4dd;
+            color: #2e7d32;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .mobile-nav {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .nav-items {
+                display: none;
+            }
+
+            .mobile-nav {
+                display: block;
+            }
+
+            .search-bar {
+                display: none;
+            }
+
+            .product-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-card {
+                min-width: 100%;
+            }
+        }
+
+        .annotation {
+            background: #fffbf0;
+            border-left: 4px solid #fbbf24;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .annotation-title {
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            padding: 0.5rem 0;
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🦶 SoleMate UI/UX Wireframes & Prototypes</h1>
+            <p class="subtitle">Interactive wireframes and design specifications for the e-commerce platform</p>
+        </header>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('home')">🏠 Homepage</button>
+            <button class="nav-tab" onclick="showSection('catalog')">📦 Product Catalog</button>
+            <button class="nav-tab" onclick="showSection('product')">👟 Product Detail</button>
+            <button class="nav-tab" onclick="showSection('cart')">🛒 Shopping Cart</button>
+            <button class="nav-tab" onclick="showSection('checkout')">💳 Checkout</button>
+            <button class="nav-tab" onclick="showSection('account')">👤 User Account</button>
+            <button class="nav-tab" onclick="showSection('admin')">⚙️ Admin Dashboard</button>
+            <button class="nav-tab" onclick="showSection('mobile')">📱 Mobile Views</button>
+        </div>
+
+        <!-- Homepage Section -->
+        <div id="home" class="content-section active">
+            <div class="wireframe-container">
+                <div class="wireframe-header">
+                    <h2 class="wireframe-title">Homepage Wireframe</h2>
+                    <div class="device-selector">
+                        <button class="device-btn active">Desktop</button>
+                        <button class="device-btn">Tablet</button>
+                        <button class="device-btn">Mobile</button>
+                    </div>
+                </div>
+
+                <div class="wireframe">
+                    <!-- Navigation Bar -->
+                    <div class="navbar">
+                        <div class="logo">SoleMate</div>
+                        <div class="search-bar">
+                            <input type="text" class="search-input" placeholder="Search for shoes...">
+                        </div>
+                        <div class="nav-items">
+                            <div class="nav-item">Categories</div>
+                            <div class="nav-item">🛒 Cart (3)</div>
+                            <div class="nav-item">👤 Account</div>
+                        </div>
+                    </div>
+
+                    <!-- Hero Section -->
+                    <div class="hero-section">
+                        <h2 class="hero-title">Step Into Style</h2>
+                        <p>Discover our new collection of premium footwear</p>
+                        <button class="cta-button">Shop Now →</button>
+                    </div>
+
+                    <!-- Featured Categories -->
+                    <h3 style="margin: 2rem 0 1rem;">Featured Categories</h3>
+                    <div class="product-grid">
+                        <div class="product-card">
+                            <div class="product-image">Running</div>
+                            <div class="product-info">
+                                <div class="product-name">Running Shoes</div>
+                                <div>150+ Products</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Casual</div>
+                            <div class="product-info">
+                                <div class="product-name">Casual Wear</div>
+                                <div>200+ Products</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Formal</div>
+                            <div class="product-info">
+                                <div class="product-name">Formal Shoes</div>
+                                <div>100+ Products</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Sports</div>
+                            <div class="product-info">
+                                <div class="product-name">Sports Footwear</div>
+                                <div>180+ Products</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- New Arrivals -->
+                    <h3 style="margin: 2rem 0 1rem;">New Arrivals</h3>
+                    <div class="product-grid">
+                        <div class="product-card">
+                            <div class="product-image">Image</div>
+                            <div class="product-info">
+                                <div class="product-name">Nike Air Max 2024</div>
+                                <div class="product-price">$159.99</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Image</div>
+                            <div class="product-info">
+                                <div class="product-name">Adidas Ultraboost</div>
+                                <div class="product-price">$189.99</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Image</div>
+                            <div class="product-info">
+                                <div class="product-name">Puma RS-X</div>
+                                <div class="product-price">$129.99</div>
+                            </div>
+                        </div>
+                        <div class="product-card">
+                            <div class="product-image">Image</div>
+                            <div class="product-info">
+                                <div class="product-name">New Balance 990</div>
+                                <div class="product-price">$174.99</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="annotation">
+                    <div class="annotation-title">📌 Design Notes:</div>
+                    <ul class="feature-list">
+                        <li>Hero banner with rotating promotional content</li>
+                        <li>Search bar with autocomplete functionality</li>
+                        <li>Quick access to cart with item count</li>
+                        <li>Category cards with hover effects</li>
+                        <li>Responsive grid layout for products</li>
+                        <li>Lazy loading for product images</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Catalog Section -->
+        <div id="catalog" class="content-section">
+            <div class="wireframe-container">
+                <div class="wireframe-header">
+                    <h2 class="wireframe-title">Product Catalog</h2>
+                </div>
+
+                <div class="wireframe">
+                    <div class="navbar">
+                        <div class="logo">SoleMate</div>
+                        <div class="search-bar">
+                            <input type="text" class="search-input" placeholder="Search for shoes...">
+                        </div>
+                        <div class="nav-items">
+                            <div class="nav-item">Categories</div>
+                            <div class="nav-item">🛒 Cart (3)</div>
+                            <div class="nav-item">👤 Account</div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 2rem;">
+                        <!-- Filters Sidebar -->
+                        <div style="width: 250px;">
+                            <div class="filter-section">
+                                <div class="filter-group">
+                                    <div class="filter-title">Category</div>
+                                    <div class="filter-options" style="flex-direction: column; align-items: start;">
+                                        <label><input type="checkbox"> Running (45)</label>
+                                        <label><input type="checkbox"> Casual (120)</label>
+                                        <label><input type="checkbox"> Formal (67)</label>
+                                        <label><input type="checkbox"> Sports (89)</label>
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <div class="filter-title">Brand</div>
+                                    <div class="filter-options" style="flex-direction: column; align-items: start;">
+                                        <label><input type="checkbox"> Nike (85)</label>
+                                        <label><input type="checkbox"> Adidas (72)</label>
+                                        <label><input type="checkbox"> Puma (43)</label>
+                                        <label><input type="checkbox"> New Balance (35)</label>
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <div class="filter-title">Size</div>
+                                    <div class="filter-options">
+                                        <div class="filter-chip">7</div>
+                                        <div class="filter-chip active">8</div>
+                                        <div class="filter-chip">9</div>
+                                        <div class="filter-chip">10</div>
+                                        <div class="filter-chip">11</div>
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <div class="filter-title">Price Range</div>
+                                    <input type="range" style="width: 100%;">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>$0</span>
+                                        <span>$500</span>
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <div class="filter-title">Color</div>
+                                    <div class="filter-options">
+                                        <div style="width: 30px; height: 30px; background: black; border
