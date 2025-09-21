@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS promo_usage;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS order_items;
+DROP TABLE IF EXISTS orders;

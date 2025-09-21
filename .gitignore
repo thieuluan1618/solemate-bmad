@@ -44,3 +44,23 @@ out/
 
 # Dependency directories
 node_modules/
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Go build outputs
+bin/
+main
+services/*/bin/
+services/*/main
+
+# Vendor
+vendor/

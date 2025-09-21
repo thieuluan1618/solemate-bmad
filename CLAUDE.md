@@ -4,82 +4,358 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SoleMate is an e-commerce platform for shoe retail currently in the planning and early development phase. The project follows a microservices architecture with separate frontend, backend, and database components.
+SoleMate is an e-commerce platform for shoe retail with **40% of planning and design completed**. The project follows a **microservices architecture using Go (Golang)** with comprehensive documentation covering requirements, planning, and system design.
+
+## Current Project Status
+
+### ✅ Completed Phases (40/100 points)
+- **Phase 1:** Requirements & Analysis (15/15) - SRS, Use Cases, RTM
+- **Phase 2:** Planning & Estimation (10/10) - Gantt Chart, Resources, Risks, Budget
+- **Phase 3:** System Design (15/15) - HLD, LLD, ER Diagram, API Docs, UI Wireframes
+
+### 🚧 Pending Phases (60/100 points)
+- **Phase 4:** Development (0/20) - Ready to start
+- **Phase 5:** Testing (0/15)
+- **Phase 6:** Deployment (0/10)
+- **Phase 7:** Maintenance (0/10)
+- **Business Impact:** (0/5)
 
 ## Project Architecture
 
-The codebase is structured with a clear separation of concerns:
+The codebase follows **Clean Architecture with Domain-Driven Design**:
 
 ```
-mock_project/
-├── src/
-│   ├── frontend/     # React.js + Next.js frontend application
-│   ├── backend/      # Node.js + Express.js backend services
-│   └── database/     # PostgreSQL database schemas and migrations
-├── tests/            # Test files for all components
-├── docs/             # Comprehensive project documentation
-├── deployment/       # Infrastructure and deployment configurations
-└── README.md         # Basic project information
+solemate/
+├── services/                 # Microservices (Go)
+│   ├── user-service/        # Authentication & user management
+│   ├── product-service/     # Product catalog & search
+│   ├── cart-service/        # Shopping cart management
+│   ├── order-service/       # Order processing
+│   ├── payment-service/     # Payment gateway integration
+│   ├── inventory-service/   # Stock management
+│   └── notification-service/# Email/SMS notifications
+├── api-gateway/             # API Gateway (Go + Gin)
+├── pkg/                     # Shared packages
+│   ├── common/             # Common utilities
+│   ├── auth/               # JWT authentication
+│   ├── database/           # Database connections
+│   ├── cache/              # Redis cache
+│   └── utils/              # Helper functions
+├── proto/                   # gRPC protobuf definitions
+├── frontend/                # React.js + Next.js application
+├── docs/                    # Comprehensive documentation
+│   ├── requirements/       # SRS, Use Cases, RTM
+│   ├── planning/          # Gantt, Resources, Risks, Budget
+│   └── design/            # HLD, LLD, ER, API, UI
+├── deployments/            # Docker, Kubernetes configs
+├── migrations/             # Database migrations
+├── scripts/                # Build and deployment scripts
+├── Makefile               # Build automation
+└── docker-compose.yml     # Local development environment
 ```
 
-### Technology Stack (Planned)
+## Technology Stack (Finalized)
 
-**Frontend:**
-- React.js 18+ with Next.js 14+ for SSR/SSG
-- TailwindCSS for styling with HeadlessUI components
-- Redux Toolkit with RTK Query for state management
-- Framer Motion for animations
+### Backend (Primary Language: Go)
+- **Language:** Go 1.21+
+- **Web Framework:** Gin for REST APIs
+- **RPC Framework:** gRPC for inter-service communication
+- **ORM:** GORM for database operations
+- **Authentication:** JWT with refresh tokens
+- **API Documentation:** OpenAPI 3.0 (Swagger)
 
-**Backend:**
-- Node.js 18+ LTS with Express.js 4+
-- RESTful APIs with OpenAPI/Swagger documentation
-- JWT-based authentication
-- Microservices architecture pattern
+### Database & Caching
+- **Primary Database:** PostgreSQL 15+
+- **Caching:** Redis 7+
+- **Search Engine:** Elasticsearch 8.9+
+- **Message Queue:** RabbitMQ or NATS
 
-**Database:**
-- PostgreSQL 15+ as primary database
-- Redis 7+ for caching and session storage
+### Frontend
+- **Framework:** React.js 18+ with Next.js 14+
+- **State Management:** Redux Toolkit with RTK Query
+- **Styling:** TailwindCSS 3+ with HeadlessUI
+- **Build Tool:** Vite or Next.js built-in
+- **Testing:** Jest + React Testing Library
 
-**Infrastructure:**
-- AWS cloud platform (EC2, RDS, ElastiCache, S3)
-- Docker containerization
-- GitHub Actions for CI/CD
+### Infrastructure
+- **Cloud Provider:** AWS
+  - EC2 for compute
+  - RDS for PostgreSQL
+  - ElastiCache for Redis
+  - S3 for object storage
+  - CloudFront for CDN
+- **Containerization:** Docker
+- **Orchestration:** Amazon ECS or Kubernetes
+- **CI/CD:** GitHub Actions
+- **Monitoring:** Prometheus + Grafana
+- **Logging:** ELK Stack or CloudWatch
+
+## Service Architecture
+
+### Each microservice follows this structure:
+```
+service-name/
+├── cmd/
+│   └── main.go              # Entry point
+├── internal/
+│   ├── domain/
+│   │   ├── entity/         # Domain entities
+│   │   ├── repository/     # Repository interfaces
+│   │   └── service/        # Business logic
+│   ├── handler/
+│   │   ├── http/          # HTTP handlers (Gin)
+│   │   └── grpc/          # gRPC handlers
+│   ├── infrastructure/
+│   │   ├── database/      # Database implementation
+│   │   ├── cache/         # Redis implementation
+│   │   └── messaging/     # Message queue
+│   └── config/            # Configuration
+├── pkg/                    # Public packages
+├── Dockerfile             # Container definition
+└── go.mod                 # Go dependencies
+```
 
 ## Development Commands
 
-Currently, no package managers or build tools are configured as the project is in the planning phase. Once implementation begins, expect commands like:
+### Prerequisites
+```bash
+# Install Go 1.21+
+# Install Docker & Docker Compose
+# Install PostgreSQL client tools
+# Install Redis client tools
+# Install Make
+```
 
-- `npm install` - Install dependencies
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run test` - Run test suite
-- `npm run lint` - Lint code
-- `docker-compose up` - Start local development stack
+### Local Development
+```bash
+# Start infrastructure services
+docker-compose up -d postgres redis elasticsearch rabbitmq
 
-## Key Business Requirements
+# Run database migrations
+make migrate-up
 
-Based on the SRS documentation, the platform must support:
+# Run individual service
+cd services/user-service
+go run cmd/main.go
 
-1. **User Management:** Registration, authentication, profile management
-2. **Product Catalog:** Advanced search, filtering, recommendations
-3. **Shopping Cart & Checkout:** Multi-payment gateway support (Stripe, PayPal, UPI)
-4. **Order Management:** Tracking, history, returns
-5. **Admin Dashboard:** Product, inventory, order, and customer management
-6. **Performance:** Sub-2-second page loads, 50k concurrent users
-7. **Security:** PCI-DSS compliance, GDPR compliance
+# Or use Make commands
+make run-user-service
+make run-product-service
+
+# Run all services
+docker-compose up
+
+# Run tests
+make test
+
+# Run specific service tests
+make test-service SERVICE=user-service
+
+# Format code
+make fmt
+
+# Lint code
+make lint
+
+# Generate protobuf files
+make proto
+
+# Build all services
+make build
+
+# Clean build artifacts
+make clean
+```
+
+## API Endpoints (Key Examples)
+
+### Authentication
+- `POST /api/v1/auth/register` - User registration
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/refresh` - Refresh token
+- `POST /api/v1/auth/logout` - Logout
+
+### Products
+- `GET /api/v1/products` - List products (paginated)
+- `GET /api/v1/products/:id` - Get product details
+- `GET /api/v1/products/search` - Search products
+
+### Cart
+- `GET /api/v1/cart` - Get user's cart
+- `POST /api/v1/cart/items` - Add item to cart
+- `PATCH /api/v1/cart/items/:id` - Update cart item
+- `DELETE /api/v1/cart/items/:id` - Remove from cart
+
+### Orders
+- `POST /api/v1/orders` - Create order
+- `GET /api/v1/orders` - List user's orders
+- `GET /api/v1/orders/:id` - Get order details
+- `POST /api/v1/orders/:id/cancel` - Cancel order
+
+## Key Implementation Files to Reference
+
+### Already Documented
+1. **Requirements:** `docs/requirements/SRS.md`
+2. **Database Schema:** `docs/design/ER_Diagram.md` (Contains complete SQL)
+3. **API Specification:** `docs/design/API_Documentation.yaml`
+4. **Service Design:** `docs/design/LLD_Golang.md` (Contains Go code structure)
+5. **UI Wireframes:** `docs/design/UI_Wireframes.html`
+
+### To Be Implemented
+1. **User Service:** Start with authentication (JWT implementation)
+2. **Product Service:** Implement catalog and Elasticsearch integration
+3. **Cart Service:** Redis-based cart management
+4. **Order Service:** State machine for order workflow
+5. **Payment Service:** Stripe/PayPal integration
+
+## Database Connection
+
+```go
+// Example PostgreSQL connection
+dsn := "host=localhost port=5432 user=solemate password=password dbname=solemate_db sslmode=disable"
+db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+```
+
+## Environment Variables
+
+```env
+# Server
+PORT=8080
+ENV=development
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=solemate
+DB_PASSWORD=password
+DB_NAME=solemate_db
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# JWT
+JWT_ACCESS_SECRET=your-access-secret
+JWT_REFRESH_SECRET=your-refresh-secret
+
+# AWS (Production)
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-key
+AWS_SECRET_ACCESS_KEY=your-secret
+
+# Stripe
+STRIPE_API_KEY=your-stripe-key
+STRIPE_WEBHOOK_SECRET=your-webhook-secret
+```
+
+## Testing Requirements
+
+- **Unit Test Coverage:** Minimum 80%
+- **Integration Tests:** For all API endpoints
+- **Load Testing:** Support 50,000 concurrent users
+- **Security Testing:** OWASP compliance
+
+## Performance Requirements
+
+- **Page Load:** <2 seconds
+- **API Response:** <500ms for standard operations
+- **Database Queries:** <100ms
+- **Concurrent Users:** 50,000
+- **Uptime:** 99.9%
+
+## Security Requirements
+
+- **Authentication:** JWT with refresh tokens
+- **Authorization:** Role-based access control (RBAC)
+- **Data Encryption:** TLS 1.3, AES-256 for sensitive data
+- **PCI-DSS:** Compliance for payment processing
+- **GDPR:** User data privacy compliance
 
 ## Development Guidelines
 
-- Target 99.9% uptime with comprehensive monitoring
-- Maintain 80%+ unit test coverage
-- Follow microservices patterns for scalability
-- Implement responsive design for mobile-first approach
-- Ensure WCAG 2.1 accessibility compliance
-- Use conventional commits for version control
+1. **Clean Architecture:** Maintain separation of concerns
+2. **Domain-Driven Design:** Business logic in domain layer
+3. **Test-Driven Development:** Write tests first
+4. **Code Review:** All PRs require review
+5. **Documentation:** Update docs with code changes
+6. **Conventional Commits:** Use semantic versioning
+7. **Error Handling:** Comprehensive error handling with logging
+8. **Monitoring:** Add metrics for all critical operations
 
-## Project Timeline
+## Git Workflow
 
-The project is planned for 6-month development cycle:
-- **Phase 1 (Months 1-3):** Core platform (auth, catalog, cart, checkout)
-- **Phase 2 (Months 4-5):** Enhanced features (recommendations, reviews, tracking)
-- **Phase 3 (Month 6):** Optimization and production deployment
+```bash
+# Create feature branch
+git checkout -b feature/service-name
+
+# Conventional commit messages
+git commit -m "feat(user-service): add JWT authentication"
+git commit -m "fix(cart-service): resolve race condition"
+git commit -m "docs: update API documentation"
+
+# Push and create PR
+git push origin feature/service-name
+```
+
+## Deployment Strategy
+
+1. **Local:** Docker Compose for development
+2. **Staging:** AWS ECS with automated deployment
+3. **Production:** AWS ECS with blue-green deployment
+4. **Rollback:** Automated rollback on failure
+
+## Monitoring & Logging
+
+- **Metrics:** Prometheus + Grafana
+- **Logging:** Structured logging with Zap
+- **Tracing:** Distributed tracing with Jaeger
+- **Alerts:** CloudWatch alarms
+- **APM:** New Relic or DataDog
+
+## Next Steps for Development
+
+1. **Setup Development Environment**
+   ```bash
+   # Clone repo and install dependencies
+   git clone <repository>
+   cd solemate
+   make deps
+   docker-compose up -d
+   ```
+
+2. **Start with User Service**
+   - Implement entity models from LLD
+   - Create repository interfaces
+   - Implement business logic
+   - Add HTTP handlers
+   - Write tests
+
+3. **Database Setup**
+   - Run migrations from ER_Diagram.md
+   - Seed test data
+   - Verify connections
+
+4. **API Gateway**
+   - Setup routing
+   - Add authentication middleware
+   - Implement rate limiting
+
+## Project Contacts
+
+- **Technical Documentation:** See `/docs` folder
+- **API Documentation:** `/docs/design/API_Documentation.yaml`
+- **Database Schema:** `/docs/design/ER_Diagram.md`
+- **Architecture Decisions:** `/docs/design/HLD.md` and `/docs/design/LLD_Golang.md`
+
+## Important Notes
+
+- All service implementations should follow the patterns defined in `LLD_Golang.md`
+- Database schema is fully defined in `ER_Diagram.md` with SQL scripts
+- API contracts are defined in `API_Documentation.yaml` - do not deviate
+- UI components should match the wireframes in `UI_Wireframes.html`
+
+---
+
+**Last Updated:** September 2024
+**Project Phase:** Ready for Development (Phase 4)
+**Completion:** 40% (40/100 points)
