@@ -1,7 +1,7 @@
 .PHONY: help build run test clean docker-build docker-up docker-down migrate
 
 # Variables
-SERVICES = user-service
+SERVICES = user-service product-service
 GO = go
 GOFLAGS = -v
 DOCKER_COMPOSE = docker-compose
