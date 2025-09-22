@@ -1,0 +1,56 @@
+{
+  "serviceName": "solemate-backend",
+  "cluster": "solemate-cluster",
+  "taskDefinition": "solemate-services:REVISION",
+  "desiredCount": 2,
+  "launchType": "FARGATE",
+  "platformVersion": "1.4.0",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-PRIVATE-1",
+        "subnet-PRIVATE-2"
+      ],
+      "securityGroups": [
+        "sg-ecs-backend"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:REGION:ACCOUNT-ID:targetgroup/solemate-backend-tg/TARGET-GROUP-ID",
+      "containerName": "api-gateway",
+      "containerPort": 8000
+    }
+  ],
+  "serviceRegistries": [
+    {
+      "registryArn": "arn:aws:servicediscovery:REGION:ACCOUNT-ID:service/srv-SERVICE-ID",
+      "containerName": "api-gateway"
+    }
+  ],
+  "deploymentConfiguration": {
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    },
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 50
+  },
+  "enableExecuteCommand": true,
+  "tags": [
+    {
+      "key": "Environment",
+      "value": "production"
+    },
+    {
+      "key": "Project",
+      "value": "SoleMate"
+    },
+    {
+      "key": "Component",
+      "value": "Backend"
+    }
+  ]
+}

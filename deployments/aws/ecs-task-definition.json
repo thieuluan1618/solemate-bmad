@@ -1,0 +1,331 @@
+{
+  "family": "solemate-services",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT-ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT-ID:role/ecsTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "user-service",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/user-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8080"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-host"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-password"
+        },
+        {
+          "name": "JWT_ACCESS_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/jwt-access-secret"
+        },
+        {
+          "name": "JWT_REFRESH_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/jwt-refresh-secret"
+        },
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/redis-host"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "user-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    },
+    {
+      "name": "product-service",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/product-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8081,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8081"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-host"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-password"
+        },
+        {
+          "name": "ELASTICSEARCH_URL",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/elasticsearch-url"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "product-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8081/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    },
+    {
+      "name": "cart-service",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/cart-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8082,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8082"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-host"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-password"
+        },
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/redis-host"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "cart-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8082/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    },
+    {
+      "name": "order-service",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/order-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8083,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8083"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-host"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-password"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "order-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8083/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    },
+    {
+      "name": "payment-service",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/payment-service:latest",
+      "portMappings": [
+        {
+          "containerPort": 8084,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8084"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DB_HOST",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-host"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/db-password"
+        },
+        {
+          "name": "STRIPE_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/stripe-api-key"
+        },
+        {
+          "name": "STRIPE_WEBHOOK_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/stripe-webhook-secret"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "payment-service"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8084/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    },
+    {
+      "name": "api-gateway",
+      "image": "ACCOUNT-ID.dkr.ecr.REGION.amazonaws.com/solemate/api-gateway:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "production"
+        },
+        {
+          "name": "PORT",
+          "value": "8000"
+        },
+        {
+          "name": "USER_SERVICE_URL",
+          "value": "http://user-service:8080"
+        },
+        {
+          "name": "PRODUCT_SERVICE_URL",
+          "value": "http://product-service:8081"
+        },
+        {
+          "name": "CART_SERVICE_URL",
+          "value": "http://cart-service:8082"
+        },
+        {
+          "name": "ORDER_SERVICE_URL",
+          "value": "http://order-service:8083"
+        },
+        {
+          "name": "PAYMENT_SERVICE_URL",
+          "value": "http://payment-service:8084"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "JWT_ACCESS_SECRET",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT-ID:secret:solemate/jwt-access-secret"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/solemate",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "api-gateway"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "essential": true
+    }
+  ]
+}

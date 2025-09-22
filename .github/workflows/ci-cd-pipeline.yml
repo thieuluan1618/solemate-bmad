@@ -1,0 +1,329 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: production-cluster
+  ECS_SERVICE: solemate-backend
+
+jobs:
+  # Testing Phase
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run linting
+      run: |
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        make lint
+
+    - name: Run unit tests
+      run: make test-unit
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_NAME: test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run functional tests
+      run: make test-functional
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_NAME: test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run integration tests
+      run: make test-integration
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_NAME: test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+
+    - name: Run security tests
+      run: make test-security
+
+    - name: Generate test coverage report
+      run: make test-coverage
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          coverage/
+          reports/
+
+  # Build and Push Docker Images
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    strategy:
+      matrix:
+        service: [user-service, product-service, cart-service, order-service, payment-service, api-gateway]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./services/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: |
+          ${{ env.ECR_REGISTRY }}/solemate/${{ matrix.service }}:latest
+          ${{ env.ECR_REGISTRY }}/solemate/${{ matrix.service }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Image vulnerability scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.ECR_REGISTRY }}/solemate/${{ matrix.service }}:${{ github.sha }}
+        format: sarif
+        output: trivy-${{ matrix.service }}.sarif
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: trivy-${{ matrix.service }}.sarif
+
+  # Deploy to AWS ECS
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Update ECS task definition
+      id: task-def
+      run: |
+        # Download current task definition
+        aws ecs describe-task-definition \
+          --task-definition solemate-services \
+          --query taskDefinition > task-def.json
+
+        # Update image URIs with new SHA
+        for service in user-service product-service cart-service order-service payment-service api-gateway; do
+          jq --arg IMAGE "$ECR_REGISTRY/solemate/$service:$GITHUB_SHA" \
+             '(.containerDefinitions[] | select(.name == "'$service'") | .image) = $IMAGE' \
+             task-def.json > temp.json && mv temp.json task-def.json
+        done
+
+        # Remove unnecessary fields for registration
+        jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .placementConstraints, .compatibilities, .registeredAt, .registeredBy)' \
+           task-def.json > final-task-def.json
+
+    - name: Deploy to Amazon ECS
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: final-task-def.json
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+        wait-for-minutes: 10
+
+    - name: Run deployment health checks
+      run: |
+        echo "Waiting for deployment to stabilize..."
+        sleep 60
+
+        # Get load balancer URL
+        LB_URL=$(aws elbv2 describe-load-balancers \
+          --names production-ALB \
+          --query 'LoadBalancers[0].DNSName' \
+          --output text)
+
+        # Health check
+        for i in {1..10}; do
+          if curl -f "http://$LB_URL/health"; then
+            echo "Health check passed"
+            exit 0
+          fi
+          echo "Health check attempt $i failed, retrying..."
+          sleep 30
+        done
+
+        echo "Health check failed after 10 attempts"
+        exit 1
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "✅ Deployment completed successfully"
+        echo "🚀 SoleMate backend services are now running in production"
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed, initiating rollback"
+        aws ecs update-service \
+          --cluster $ECS_CLUSTER \
+          --service $ECS_SERVICE \
+          --force-new-deployment
+
+  # Performance Testing in Production
+  performance-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Get production endpoint
+      id: endpoint
+      run: |
+        LB_URL=$(aws elbv2 describe-load-balancers \
+          --names production-ALB \
+          --query 'LoadBalancers[0].DNSName' \
+          --output text)
+        echo "ENDPOINT=http://$LB_URL" >> $GITHUB_OUTPUT
+
+    - name: Run performance tests
+      run: |
+        cd tests/performance
+        go test -v -timeout=30m \
+          -endpoint=${{ steps.endpoint.outputs.ENDPOINT }}
+      env:
+        PERFORMANCE_TEST_ENDPOINT: ${{ steps.endpoint.outputs.ENDPOINT }}
+        TARGET_RPS: 1000
+        DURATION: 300s
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-results
+        path: tests/performance/results/
+
+  # Security Scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: go
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+    - name: Run Gosec Security Scanner
+      uses: securecodewarrior/github-action-gosec@master
+      with:
+        args: './...'
+
+    - name: Run nancy vulnerability scanner
+      run: |
+        go install github.com/sonatypecommunity/nancy@latest
+        go list -json -m all | nancy sleuth
