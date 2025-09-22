@@ -132,6 +132,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    container_name: solemate-order-service
+    environment:
+      - PORT=8084
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=solemate
+      - DB_PASSWORD=password
+      - DB_NAME=solemate_db
+      - JWT_ACCESS_SECRET=your-access-secret-key-here
+      - JWT_REFRESH_SECRET=your-refresh-secret-key-here
+      - CART_SERVICE_URL=http://cart-service:8083
+      - PRODUCT_SERVICE_URL=http://product-service:8081
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -142,7 +165,7 @@ services:
       - USER_SERVICE_URL=user-service:8080
       - PRODUCT_SERVICE_URL=product-service:8081
       - CART_SERVICE_URL=cart-service:8083
-      - ORDER_SERVICE_URL=order-service:8083
+      - ORDER_SERVICE_URL=order-service:8084
       - PAYMENT_SERVICE_URL=payment-service:8084
     ports:
       - "8000:8000"
@@ -150,6 +173,7 @@ services:
       - user-service
       - product-service
       - cart-service
+      - order-service
     restart: unless-stopped
 
 volumes:

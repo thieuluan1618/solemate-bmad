@@ -70,10 +70,26 @@ func SetupRoutes(proxyHandler *ProxyHandler, jwtManager *auth.JWTManager) *gin.E
 			// Order routes
 			orders := protected.Group("/orders")
 			{
-				orders.GET("", proxyHandler.ProxyToOrderService)
 				orders.POST("", proxyHandler.ProxyToOrderService)
-				orders.GET("/:id", proxyHandler.ProxyToOrderService)
-				orders.POST("/:id/cancel", proxyHandler.ProxyToOrderService)
+				orders.GET("/me", proxyHandler.ProxyToOrderService)
+				orders.GET("/me/summaries", proxyHandler.ProxyToOrderService)
+				orders.GET("/:order_id", proxyHandler.ProxyToOrderService)
+				orders.GET("/number/:order_number", proxyHandler.ProxyToOrderService)
+				orders.PATCH("/:order_id/shipping-address", proxyHandler.ProxyToOrderService)
+				orders.PATCH("/:order_id/billing-address", proxyHandler.ProxyToOrderService)
+
+				// Admin order routes
+				adminOrders := orders.Group("/admin")
+				adminOrders.Use(middleware.AdminMiddleware())
+				{
+					adminOrders.POST("/search", proxyHandler.ProxyToOrderService)
+					adminOrders.GET("/statistics", proxyHandler.ProxyToOrderService)
+					adminOrders.GET("/top-products", proxyHandler.ProxyToOrderService)
+					adminOrders.GET("/sales-metrics", proxyHandler.ProxyToOrderService)
+					adminOrders.PATCH("/:order_id/status", proxyHandler.ProxyToOrderService)
+					adminOrders.POST("/:order_id/ship", proxyHandler.ProxyToOrderService)
+					adminOrders.PATCH("/:order_id/payment-status", proxyHandler.ProxyToOrderService)
+				}
 			}
 
 			// Payment routes

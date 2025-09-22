@@ -153,7 +153,6 @@ func (o *Order) TransitionTo(newStatus OrderStatus) error {
 	}
 
 	now := time.Now()
-	previousStatus := o.Status
 	o.Status = newStatus
 	o.UpdatedAt = now
 
