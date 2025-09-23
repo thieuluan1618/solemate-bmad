@@ -1,0 +1,733 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SoleMate Backup and Disaster Recovery Infrastructure'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: Environment name prefix
+
+  BackupRetentionDays:
+    Type: Number
+    Default: 30
+    Description: Number of days to retain backups
+
+  CrossRegionBackup:
+    Type: String
+    Default: 'us-west-2'
+    Description: Cross-region backup destination
+
+  DBInstanceIdentifier:
+    Type: String
+    Default: 'production-postgres'
+    Description: RDS instance identifier
+
+Resources:
+  # S3 Bucket for Backup Storage
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-solemate-backups-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: BackupRetention
+            Status: Enabled
+            ExpirationInDays: !Ref BackupRetentionDays
+          - Id: TransitionToIA
+            Status: Enabled
+            TransitionInDays: 30
+            StorageClass: STANDARD_IA
+          - Id: TransitionToGlacier
+            Status: Enabled
+            TransitionInDays: 90
+            StorageClass: GLACIER
+          - Id: TransitionToDeepArchive
+            Status: Enabled
+            TransitionInDays: 365
+            StorageClass: DEEP_ARCHIVE
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref BackupKMSKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      ReplicationConfiguration:
+        Role: !GetAtt S3ReplicationRole.Arn
+        Rules:
+          - Id: CrossRegionReplication
+            Status: Enabled
+            Prefix: backups/
+            Destination:
+              Bucket: !Sub arn:aws:s3:::${EnvironmentName}-solemate-backups-dr-${AWS::AccountId}
+              StorageClass: STANDARD_IA
+              EncryptionConfiguration:
+                ReplicaKmsKeyID: !Ref BackupKMSKey
+
+  # Cross-Region Backup Bucket
+  CrossRegionBackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-solemate-backups-dr-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !Ref BackupKMSKey
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # KMS Key for Backup Encryption
+  BackupKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS Key for SoleMate backup encryption
+      KeyPolicy:
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow AWS Backup
+            Effect: Allow
+            Principal:
+              Service: backup.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              - kms:DescribeKey
+            Resource: '*'
+
+  BackupKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${EnvironmentName}-solemate-backup-key
+      TargetKeyId: !Ref BackupKMSKey
+
+  # S3 Replication Role
+  S3ReplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-s3-replication-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3ReplicationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObjectVersionForReplication
+                  - s3:GetObjectVersionAcl
+                Resource: !Sub '${BackupBucket}/*'
+              - Effect: Allow
+                Action:
+                  - s3:ReplicateObject
+                  - s3:ReplicateDelete
+                Resource: !Sub '${CrossRegionBackupBucket}/*'
+
+  # AWS Backup Vault
+  BackupVault:
+    Type: AWS::Backup::BackupVault
+    Properties:
+      BackupVaultName: !Sub ${EnvironmentName}-solemate-backup-vault
+      EncryptionKeyArn: !GetAtt BackupKMSKey.Arn
+      AccessPolicy:
+        Statement:
+          - Sid: DenyDeleteBackups
+            Effect: Deny
+            Principal: '*'
+            Action:
+              - backup:DeleteBackupVault
+              - backup:DeleteBackupPlan
+              - backup:DeleteRecoveryPoint
+            Resource: '*'
+
+  # AWS Backup Service Role
+  BackupServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-aws-backup-service-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: backup.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForRestores
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForS3Backup
+        - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForS3Restore
+
+  # AWS Backup Plan
+  BackupPlan:
+    Type: AWS::Backup::BackupPlan
+    Properties:
+      BackupPlan:
+        BackupPlanName: !Sub ${EnvironmentName}-solemate-backup-plan
+        BackupPlanRule:
+          - RuleName: DailyBackups
+            TargetBackupVault: !Ref BackupVault
+            ScheduleExpression: 'cron(0 2 * * ? *)'  # Daily at 2 AM UTC
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 120
+            Lifecycle:
+              DeleteAfterDays: !Ref BackupRetentionDays
+              MoveToColdStorageAfterDays: 30
+            RecoveryPointTags:
+              Environment: !Ref EnvironmentName
+              BackupType: Daily
+              Project: SoleMate
+          - RuleName: WeeklyBackups
+            TargetBackupVault: !Ref BackupVault
+            ScheduleExpression: 'cron(0 3 ? * SUN *)'  # Weekly on Sunday at 3 AM UTC
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 180
+            Lifecycle:
+              DeleteAfterDays: 90
+              MoveToColdStorageAfterDays: 7
+            RecoveryPointTags:
+              Environment: !Ref EnvironmentName
+              BackupType: Weekly
+              Project: SoleMate
+          - RuleName: MonthlyBackups
+            TargetBackupVault: !Ref BackupVault
+            ScheduleExpression: 'cron(0 4 1 * ? *)'  # Monthly on 1st at 4 AM UTC
+            StartWindowMinutes: 60
+            CompletionWindowMinutes: 240
+            Lifecycle:
+              DeleteAfterDays: 365
+              MoveToColdStorageAfterDays: 1
+            RecoveryPointTags:
+              Environment: !Ref EnvironmentName
+              BackupType: Monthly
+              Project: SoleMate
+
+  # Backup Selection for RDS
+  RDSBackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref BackupPlan
+      BackupSelection:
+        SelectionName: !Sub ${EnvironmentName}-rds-backup-selection
+        IamRoleArn: !GetAtt BackupServiceRole.Arn
+        Resources:
+          - !Sub 'arn:aws:rds:${AWS::Region}:${AWS::AccountId}:db:${DBInstanceIdentifier}'
+        Conditions:
+          StringEquals:
+            'aws:ResourceTag/Environment': !Ref EnvironmentName
+
+  # Backup Selection for EFS (if used)
+  EFSBackupSelection:
+    Type: AWS::Backup::BackupSelection
+    Properties:
+      BackupPlanId: !Ref BackupPlan
+      BackupSelection:
+        SelectionName: !Sub ${EnvironmentName}-efs-backup-selection
+        IamRoleArn: !GetAtt BackupServiceRole.Arn
+        Resources:
+          - !Sub 'arn:aws:elasticfilesystem:${AWS::Region}:${AWS::AccountId}:file-system/*'
+        Conditions:
+          StringEquals:
+            'aws:ResourceTag/Environment': !Ref EnvironmentName
+
+  # Lambda Function for Application Backup
+  ApplicationBackupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-application-backup
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt ApplicationBackupRole.Arn
+      Timeout: 900
+      Environment:
+        Variables:
+          BACKUP_BUCKET: !Ref BackupBucket
+          ENVIRONMENT: !Ref EnvironmentName
+          KMS_KEY_ID: !Ref BackupKMSKey
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+          import zipfile
+          import tempfile
+
+          s3 = boto3.client('s3')
+          ecs = boto3.client('ecs')
+          secrets_manager = boto3.client('secretsmanager')
+
+          def lambda_handler(event, context):
+              bucket = os.environ['BACKUP_BUCKET']
+              environment = os.environ['ENVIRONMENT']
+              timestamp = datetime.utcnow().strftime('%Y%m%d-%H%M%S')
+
+              backup_manifest = {
+                  'timestamp': timestamp,
+                  'environment': environment,
+                  'backup_type': 'application',
+                  'components': []
+              }
+
+              try:
+                  # Backup ECS task definitions
+                  task_definitions = backup_ecs_task_definitions()
+                  backup_manifest['components'].append({
+                      'type': 'ecs_task_definitions',
+                      'count': len(task_definitions),
+                      'status': 'success'
+                  })
+
+                  # Backup application configuration
+                  config_backup = backup_application_config()
+                  backup_manifest['components'].append({
+                      'type': 'application_config',
+                      'count': len(config_backup),
+                      'status': 'success'
+                  })
+
+                  # Create backup archive
+                  with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as tmp_file:
+                      with zipfile.ZipFile(tmp_file.name, 'w') as zip_file:
+                          # Add task definitions
+                          for td in task_definitions:
+                              zip_file.writestr(f"task_definitions/{td['family']}.json",
+                                               json.dumps(td, indent=2))
+
+                          # Add configuration
+                          zip_file.writestr("config/application_config.json",
+                                           json.dumps(config_backup, indent=2))
+
+                          # Add backup manifest
+                          zip_file.writestr("manifest.json",
+                                           json.dumps(backup_manifest, indent=2))
+
+                      # Upload to S3
+                      backup_key = f"application_backups/{environment}/{timestamp}/backup.zip"
+                      s3.upload_file(
+                          tmp_file.name,
+                          bucket,
+                          backup_key,
+                          ExtraArgs={
+                              'ServerSideEncryption': 'aws:kms',
+                              'SSEKMSKeyId': os.environ['KMS_KEY_ID']
+                          }
+                      )
+
+                  # Clean up temp file
+                  os.unlink(tmp_file.name)
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'Application backup completed successfully',
+                          'backup_location': f"s3://{bucket}/{backup_key}",
+                          'manifest': backup_manifest
+                      })
+                  }
+
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': str(e),
+                          'message': 'Application backup failed'
+                      })
+                  }
+
+          def backup_ecs_task_definitions():
+              cluster_name = f"{os.environ['ENVIRONMENT']}-cluster"
+
+              # List all task definitions
+              task_definitions = []
+              paginator = ecs.get_paginator('list_task_definitions')
+
+              for page in paginator.paginate(familyPrefix='solemate'):
+                  for td_arn in page['taskDefinitionArns']:
+                      response = ecs.describe_task_definition(taskDefinition=td_arn)
+                      task_def = response['taskDefinition']
+
+                      # Remove unnecessary fields
+                      fields_to_remove = [
+                          'taskDefinitionArn', 'revision', 'status',
+                          'requiresAttributes', 'registeredAt', 'registeredBy'
+                      ]
+                      for field in fields_to_remove:
+                          task_def.pop(field, None)
+
+                      task_definitions.append(task_def)
+
+              return task_definitions
+
+          def backup_application_config():
+              config = {
+                  'environment_variables': {},
+                  'secrets': []
+              }
+
+              # Backup secrets list (not values)
+              try:
+                  paginator = secrets_manager.get_paginator('list_secrets')
+                  for page in paginator.paginate():
+                      for secret in page['SecretList']:
+                          if 'solemate' in secret['Name'].lower():
+                              config['secrets'].append({
+                                  'name': secret['Name'],
+                                  'description': secret.get('Description', ''),
+                                  'arn': secret['ARN']
+                              })
+              except Exception as e:
+                  config['secrets_backup_error'] = str(e)
+
+              return config
+
+  ApplicationBackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-application-backup-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ApplicationBackupPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub '${BackupBucket}/*'
+              - Effect: Allow
+                Action:
+                  - ecs:ListTaskDefinitions
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeServices
+                  - ecs:DescribeClusters
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - secretsmanager:ListSecrets
+                  - secretsmanager:DescribeSecret
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: !GetAtt BackupKMSKey.Arn
+
+  # EventBridge Rule for Application Backup
+  ApplicationBackupSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-application-backup-schedule
+      Description: Trigger application backup daily
+      ScheduleExpression: 'cron(0 1 * * ? *)'  # Daily at 1 AM UTC
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ApplicationBackupFunction.Arn
+          Id: ApplicationBackupTarget
+
+  # Permission for EventBridge to invoke Lambda
+  ApplicationBackupInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApplicationBackupFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ApplicationBackupSchedule.Arn
+
+  # Disaster Recovery Lambda Function
+  DisasterRecoveryFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-disaster-recovery
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt DisasterRecoveryRole.Arn
+      Timeout: 900
+      Environment:
+        Variables:
+          BACKUP_BUCKET: !Ref BackupBucket
+          CROSS_REGION_BUCKET: !Ref CrossRegionBackupBucket
+          ENVIRONMENT: !Ref EnvironmentName
+          TARGET_REGION: !Ref CrossRegionBackup
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+
+          def lambda_handler(event, context):
+              environment = os.environ['ENVIRONMENT']
+              target_region = os.environ['TARGET_REGION']
+
+              recovery_plan = {
+                  'timestamp': datetime.utcnow().isoformat(),
+                  'environment': environment,
+                  'target_region': target_region,
+                  'steps': []
+              }
+
+              try:
+                  # Step 1: Validate backup availability
+                  backup_status = validate_backups()
+                  recovery_plan['steps'].append({
+                      'step': 1,
+                      'action': 'validate_backups',
+                      'status': 'success' if backup_status else 'failed',
+                      'details': backup_status
+                  })
+
+                  if not backup_status:
+                      raise Exception("Backup validation failed")
+
+                  # Step 2: Prepare infrastructure in target region
+                  infrastructure_status = prepare_infrastructure(target_region)
+                  recovery_plan['steps'].append({
+                      'step': 2,
+                      'action': 'prepare_infrastructure',
+                      'status': 'planned',
+                      'details': infrastructure_status
+                  })
+
+                  # Step 3: Database recovery plan
+                  db_recovery_plan = create_database_recovery_plan()
+                  recovery_plan['steps'].append({
+                      'step': 3,
+                      'action': 'database_recovery',
+                      'status': 'planned',
+                      'details': db_recovery_plan
+                  })
+
+                  # Step 4: Application recovery plan
+                  app_recovery_plan = create_application_recovery_plan()
+                  recovery_plan['steps'].append({
+                      'step': 4,
+                      'action': 'application_recovery',
+                      'status': 'planned',
+                      'details': app_recovery_plan
+                  })
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'Disaster recovery plan created',
+                          'plan': recovery_plan,
+                          'execution_required': event.get('execute', False)
+                      })
+                  }
+
+              except Exception as e:
+                  recovery_plan['steps'].append({
+                      'step': 'error',
+                      'action': 'disaster_recovery_planning',
+                      'status': 'failed',
+                      'error': str(e)
+                  })
+
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': str(e),
+                          'plan': recovery_plan
+                      })
+                  }
+
+          def validate_backups():
+              s3 = boto3.client('s3')
+              backup_bucket = os.environ['BACKUP_BUCKET']
+
+              try:
+                  # Check for recent RDS snapshots
+                  rds = boto3.client('rds')
+                  snapshots = rds.describe_db_snapshots(
+                      DBInstanceIdentifier=f"{os.environ['ENVIRONMENT']}-postgres",
+                      SnapshotType='automated',
+                      MaxRecords=5
+                  )
+
+                  recent_snapshots = [s for s in snapshots['DBSnapshots']
+                                    if s['Status'] == 'available']
+
+                  # Check for application backups
+                  response = s3.list_objects_v2(
+                      Bucket=backup_bucket,
+                      Prefix=f"application_backups/{os.environ['ENVIRONMENT']}/",
+                      MaxKeys=10
+                  )
+
+                  recent_backups = response.get('Contents', [])
+
+                  return {
+                      'rds_snapshots': len(recent_snapshots),
+                      'application_backups': len(recent_backups),
+                      'latest_snapshot': recent_snapshots[0]['SnapshotCreateTime'].isoformat() if recent_snapshots else None,
+                      'latest_backup': recent_backups[0]['LastModified'].isoformat() if recent_backups else None
+                  }
+
+              except Exception as e:
+                  return {'error': str(e)}
+
+          def prepare_infrastructure(target_region):
+              return {
+                  'vpc_setup': 'CloudFormation template deployment required',
+                  'security_groups': 'Cross-region security group replication needed',
+                  'load_balancer': 'ALB configuration in target region required',
+                  'ecs_cluster': 'ECS cluster setup in target region required'
+              }
+
+          def create_database_recovery_plan():
+              return {
+                  'restore_from_snapshot': 'Restore RDS from latest automated snapshot',
+                  'point_in_time_recovery': 'Available up to 7 days',
+                  'cross_region_replica': 'Consider setting up read replica for faster failover',
+                  'estimated_rto': '15-30 minutes'
+              }
+
+          def create_application_recovery_plan():
+              return {
+                  'task_definition_restore': 'Restore from latest application backup',
+                  'secrets_recreation': 'Recreate secrets in target region',
+                  'service_deployment': 'Deploy ECS services with restored configuration',
+                  'dns_update': 'Update Route 53 records to point to new region',
+                  'estimated_rto': '10-20 minutes'
+              }
+
+  DisasterRecoveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-disaster-recovery-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DisasterRecoveryPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                Resource:
+                  - !Sub '${BackupBucket}/*'
+                  - !Ref BackupBucket
+                  - !Sub '${CrossRegionBackupBucket}/*'
+                  - !Ref CrossRegionBackupBucket
+              - Effect: Allow
+                Action:
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBInstances
+                  - backup:ListRecoveryPoints
+                  - backup:DescribeBackupJob
+                Resource: '*'
+
+  # CloudWatch Dashboard for Backup and DR
+  BackupDRDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${EnvironmentName}-backup-disaster-recovery
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/Backup", "NumberOfBackupJobsCompleted", "BackupVaultName", "${BackupVault}"],
+                  [".", "NumberOfBackupJobsFailed", ".", "."],
+                  [".", "NumberOfBackupJobsCreated", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Backup Job Status",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${DBInstanceIdentifier}"],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${ApplicationBackupFunction}"],
+                  [".", "Errors", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Database and Backup Function Metrics",
+                "period": 300
+              }
+            }
+          ]
+        }
+
+Outputs:
+  BackupVault:
+    Description: AWS Backup Vault ARN
+    Value: !GetAtt BackupVault.BackupVaultArn
+    Export:
+      Name: !Sub ${EnvironmentName}-BackupVault
+
+  BackupBucket:
+    Description: S3 Backup Bucket Name
+    Value: !Ref BackupBucket
+    Export:
+      Name: !Sub ${EnvironmentName}-BackupBucket
+
+  ApplicationBackupFunction:
+    Description: Application Backup Lambda Function ARN
+    Value: !GetAtt ApplicationBackupFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-ApplicationBackupFunction
+
+  DisasterRecoveryFunction:
+    Description: Disaster Recovery Lambda Function ARN
+    Value: !GetAtt DisasterRecoveryFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-DisasterRecoveryFunction

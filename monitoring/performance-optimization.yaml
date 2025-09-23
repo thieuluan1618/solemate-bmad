@@ -1,0 +1,518 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SoleMate Performance Optimization and Auto-scaling Configuration'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: Environment name prefix
+
+  ECSClusterName:
+    Type: String
+    Default: 'production-cluster'
+    Description: ECS cluster name
+
+  ServiceName:
+    Type: String
+    Default: 'solemate-backend'
+    Description: ECS service name
+
+Resources:
+  # Application Auto Scaling Role
+  ApplicationAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-application-autoscaling-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSServiceRolePolicy
+
+  # ECS Service Auto Scaling Target
+  ECSScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      ServiceNamespace: ecs
+      ResourceId: !Sub service/${ECSClusterName}/${ServiceName}
+      ScalableDimension: ecs:service:DesiredCount
+      MinCapacity: 2
+      MaxCapacity: 20
+      RoleARN: !GetAtt ApplicationAutoScalingRole.Arn
+
+  # CPU-based Auto Scaling Policy
+  ECSCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-ecs-cpu-scaling
+      PolicyType: TargetTrackingScaling
+      ServiceNamespace: ecs
+      ResourceId: !Sub service/${ECSClusterName}/${ServiceName}
+      ScalableDimension: ecs:service:DesiredCount
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleOutCooldown: 300
+        ScaleInCooldown: 300
+    DependsOn: ECSScalableTarget
+
+  # Memory-based Auto Scaling Policy
+  ECSMemoryScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-ecs-memory-scaling
+      PolicyType: TargetTrackingScaling
+      ServiceNamespace: ecs
+      ResourceId: !Sub service/${ECSClusterName}/${ServiceName}
+      ScalableDimension: ecs:service:DesiredCount
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 80.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        ScaleOutCooldown: 300
+        ScaleInCooldown: 300
+    DependsOn: ECSScalableTarget
+
+  # Request-based Auto Scaling Policy
+  ALBRequestScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub ${EnvironmentName}-alb-request-scaling
+      PolicyType: TargetTrackingScaling
+      ServiceNamespace: ecs
+      ResourceId: !Sub service/${ECSClusterName}/${ServiceName}
+      ScalableDimension: ecs:service:DesiredCount
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 1000.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Sub app/${EnvironmentName}-ALB/targetgroup/${EnvironmentName}-TG
+        ScaleOutCooldown: 300
+        ScaleInCooldown: 300
+    DependsOn: ECSScalableTarget
+
+  # Lambda Function for Performance Analytics
+  PerformanceAnalyticsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-performance-analytics
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt PerformanceAnalyticsRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          CLOUDWATCH_NAMESPACE: 'SoleMate/Performance'
+          ENVIRONMENT: !Ref EnvironmentName
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+
+          cloudwatch = boto3.client('cloudwatch')
+          ecs = boto3.client('ecs')
+          rds = boto3.client('rds')
+
+          def lambda_handler(event, context):
+              namespace = os.environ['CLOUDWATCH_NAMESPACE']
+
+              # Collect ECS metrics
+              response = ecs.describe_services(
+                  cluster=os.environ.get('ECS_CLUSTER', 'production-cluster'),
+                  services=[os.environ.get('SERVICE_NAME', 'solemate-backend')]
+              )
+
+              service = response['services'][0]
+              running_tasks = service['runningCount']
+              desired_tasks = service['desiredCount']
+
+              # Calculate task efficiency
+              task_efficiency = (running_tasks / desired_tasks * 100) if desired_tasks > 0 else 0
+
+              # Put custom metrics
+              cloudwatch.put_metric_data(
+                  Namespace=namespace,
+                  MetricData=[
+                      {
+                          'MetricName': 'TaskEfficiency',
+                          'Value': task_efficiency,
+                          'Unit': 'Percent',
+                          'Timestamp': datetime.utcnow()
+                      },
+                      {
+                          'MetricName': 'RunningTasks',
+                          'Value': running_tasks,
+                          'Unit': 'Count',
+                          'Timestamp': datetime.utcnow()
+                      }
+                  ]
+              )
+
+              # Analyze response times and recommend optimizations
+              end_time = datetime.utcnow()
+              start_time = end_time - timedelta(hours=1)
+
+              metrics = cloudwatch.get_metric_statistics(
+                  Namespace='AWS/ApplicationELB',
+                  MetricName='TargetResponseTime',
+                  Dimensions=[
+                      {
+                          'Name': 'LoadBalancer',
+                          'Value': f"app/{os.environ['ENVIRONMENT']}-ALB"
+                      }
+                  ],
+                  StartTime=start_time,
+                  EndTime=end_time,
+                  Period=300,
+                  Statistics=['Average', 'Maximum']
+              )
+
+              if metrics['Datapoints']:
+                  avg_response_time = sum(dp['Average'] for dp in metrics['Datapoints']) / len(metrics['Datapoints'])
+                  max_response_time = max(dp['Maximum'] for dp in metrics['Datapoints'])
+
+                  # Performance recommendations
+                  recommendations = []
+                  if avg_response_time > 1.0:
+                      recommendations.append("Consider scaling up ECS tasks")
+                  if max_response_time > 2.0:
+                      recommendations.append("Check for database bottlenecks")
+
+                  # Store recommendations as custom metric
+                  cloudwatch.put_metric_data(
+                      Namespace=namespace,
+                      MetricData=[
+                          {
+                              'MetricName': 'AverageResponseTime',
+                              'Value': avg_response_time,
+                              'Unit': 'Seconds',
+                              'Timestamp': datetime.utcnow()
+                          },
+                          {
+                              'MetricName': 'MaxResponseTime',
+                              'Value': max_response_time,
+                              'Unit': 'Seconds',
+                              'Timestamp': datetime.utcnow()
+                          }
+                      ]
+                  )
+
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'task_efficiency': task_efficiency,
+                      'running_tasks': running_tasks,
+                      'recommendations': recommendations if 'recommendations' in locals() else []
+                  })
+              }
+
+  PerformanceAnalyticsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-performance-analytics-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PerformanceAnalyticsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:PutMetricData
+                  - ecs:DescribeServices
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - rds:DescribeDBInstances
+                Resource: '*'
+
+  # EventBridge Rule for Performance Analytics
+  PerformanceAnalyticsSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-performance-analytics-schedule
+      Description: Trigger performance analytics every 15 minutes
+      ScheduleExpression: 'rate(15 minutes)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt PerformanceAnalyticsFunction.Arn
+          Id: PerformanceAnalyticsTarget
+
+  # Permission for EventBridge to invoke Lambda
+  PerformanceAnalyticsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref PerformanceAnalyticsFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt PerformanceAnalyticsSchedule.Arn
+
+  # Database Performance Insights
+  DBPerformanceInsightsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-db-performance-insights-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: rds.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+
+  # Lambda Function for Database Optimization Recommendations
+  DatabaseOptimizationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-database-optimization
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt DatabaseOptimizationRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          DB_INSTANCE_IDENTIFIER: !Sub ${EnvironmentName}-postgres
+          CLOUDWATCH_NAMESPACE: 'SoleMate/Database'
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+
+          cloudwatch = boto3.client('cloudwatch')
+          rds = boto3.client('rds')
+
+          def lambda_handler(event, context):
+              db_instance = os.environ['DB_INSTANCE_IDENTIFIER']
+              namespace = os.environ['CLOUDWATCH_NAMESPACE']
+
+              # Get database metrics
+              end_time = datetime.utcnow()
+              start_time = end_time - timedelta(hours=1)
+
+              metrics_to_check = [
+                  'CPUUtilization',
+                  'DatabaseConnections',
+                  'FreeableMemory',
+                  'ReadLatency',
+                  'WriteLatency'
+              ]
+
+              recommendations = []
+
+              for metric_name in metrics_to_check:
+                  response = cloudwatch.get_metric_statistics(
+                      Namespace='AWS/RDS',
+                      MetricName=metric_name,
+                      Dimensions=[
+                          {
+                              'Name': 'DBInstanceIdentifier',
+                              'Value': db_instance
+                          }
+                      ],
+                      StartTime=start_time,
+                      EndTime=end_time,
+                      Period=300,
+                      Statistics=['Average', 'Maximum']
+                  )
+
+                  if response['Datapoints']:
+                      avg_value = sum(dp['Average'] for dp in response['Datapoints']) / len(response['Datapoints'])
+                      max_value = max(dp['Maximum'] for dp in response['Datapoints'])
+
+                      # Performance recommendations
+                      if metric_name == 'CPUUtilization' and avg_value > 75:
+                          recommendations.append("Consider upgrading database instance class")
+                      elif metric_name == 'DatabaseConnections' and avg_value > 80:
+                          recommendations.append("Implement connection pooling")
+                      elif metric_name == 'FreeableMemory' and avg_value < 256 * 1024 * 1024:  # 256MB
+                          recommendations.append("Consider increasing database memory")
+                      elif metric_name in ['ReadLatency', 'WriteLatency'] and avg_value > 0.02:  # 20ms
+                          recommendations.append(f"Optimize {metric_name.replace('Latency', '').lower()} operations")
+
+                      # Store processed metrics
+                      cloudwatch.put_metric_data(
+                          Namespace=namespace,
+                          MetricData=[
+                              {
+                                  'MetricName': f'Processed{metric_name}',
+                                  'Value': avg_value,
+                                  'Unit': 'None',
+                                  'Timestamp': datetime.utcnow()
+                              }
+                          ]
+                      )
+
+              # Store recommendation count
+              cloudwatch.put_metric_data(
+                  Namespace=namespace,
+                  MetricData=[
+                      {
+                          'MetricName': 'OptimizationRecommendations',
+                          'Value': len(recommendations),
+                          'Unit': 'Count',
+                          'Timestamp': datetime.utcnow()
+                      }
+                  ]
+              )
+
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'recommendations': recommendations,
+                      'metrics_analyzed': len(metrics_to_check)
+                  })
+              }
+
+  DatabaseOptimizationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-database-optimization-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DatabaseOptimizationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - cloudwatch:PutMetricData
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBClusters
+                Resource: '*'
+
+  # EventBridge Rule for Database Optimization
+  DatabaseOptimizationSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-database-optimization-schedule
+      Description: Trigger database optimization analysis hourly
+      ScheduleExpression: 'rate(1 hour)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DatabaseOptimizationFunction.Arn
+          Id: DatabaseOptimizationTarget
+
+  # Permission for EventBridge to invoke Lambda
+  DatabaseOptimizationInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DatabaseOptimizationFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DatabaseOptimizationSchedule.Arn
+
+  # CloudWatch Dashboard for Performance Optimization
+  PerformanceOptimizationDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${EnvironmentName}-performance-optimization
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["SoleMate/Performance", "TaskEfficiency"],
+                  [".", "AverageResponseTime"],
+                  [".", "MaxResponseTime"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Performance Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["SoleMate/Database", "OptimizationRecommendations"],
+                  [".", "ProcessedCPUUtilization"],
+                  [".", "ProcessedDatabaseConnections"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Database Performance",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/ECS", "CPUUtilization", "ServiceName", "${ServiceName}", "ClusterName", "${ECSClusterName}"],
+                  [".", "MemoryUtilization", ".", ".", ".", "."],
+                  ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/${EnvironmentName}-ALB"],
+                  [".", "RequestCount", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Infrastructure Performance",
+                "period": 300
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ECSScalableTargetId:
+    Description: ECS Scalable Target Resource ID
+    Value: !Ref ECSScalableTarget
+    Export:
+      Name: !Sub ${EnvironmentName}-ECSScalableTarget
+
+  PerformanceAnalyticsFunctionArn:
+    Description: Performance Analytics Lambda Function ARN
+    Value: !GetAtt PerformanceAnalyticsFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-PerformanceAnalyticsFunction
+
+  DatabaseOptimizationFunctionArn:
+    Description: Database Optimization Lambda Function ARN
+    Value: !GetAtt DatabaseOptimizationFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-DatabaseOptimizationFunction

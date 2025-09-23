@@ -1,0 +1,544 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SoleMate Business Intelligence and Metrics Collection System'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: Environment name prefix
+
+  AnalyticsS3Bucket:
+    Type: String
+    Description: S3 bucket for analytics data storage
+
+Resources:
+  # Kinesis Data Stream for Real-time Analytics
+  BusinessMetricsStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub ${EnvironmentName}-business-metrics
+      ShardCount: 2
+      RetentionPeriodHours: 168  # 7 days
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: BusinessAnalytics
+
+  # Lambda Function for Business Metrics Processing
+  BusinessMetricsProcessor:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-business-metrics-processor
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt BusinessMetricsRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          CLOUDWATCH_NAMESPACE: 'SoleMate/Business'
+          ANALYTICS_BUCKET: !Ref AnalyticsS3Bucket
+          ENVIRONMENT: !Ref EnvironmentName
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+          import base64
+
+          cloudwatch = boto3.client('cloudwatch')
+          s3 = boto3.client('s3')
+          dynamodb = boto3.resource('dynamodb')
+
+          def lambda_handler(event, context):
+              namespace = os.environ['CLOUDWATCH_NAMESPACE']
+              bucket = os.environ['ANALYTICS_BUCKET']
+
+              business_metrics = {
+                  'timestamp': datetime.utcnow().isoformat(),
+                  'metrics': [],
+                  'events_processed': 0
+              }
+
+              try:
+                  for record in event['Records']:
+                      # Decode Kinesis data
+                      payload = base64.b64decode(record['kinesis']['data'])
+                      event_data = json.loads(payload.decode('utf-8'))
+
+                      # Process different event types
+                      if event_data.get('event_type') == 'order_created':
+                          process_order_event(event_data, business_metrics)
+                      elif event_data.get('event_type') == 'payment_processed':
+                          process_payment_event(event_data, business_metrics)
+                      elif event_data.get('event_type') == 'user_registered':
+                          process_user_event(event_data, business_metrics)
+                      elif event_data.get('event_type') == 'product_viewed':
+                          process_product_view_event(event_data, business_metrics)
+                      elif event_data.get('event_type') == 'cart_abandoned':
+                          process_cart_abandonment_event(event_data, business_metrics)
+
+                      business_metrics['events_processed'] += 1
+
+                  # Send metrics to CloudWatch
+                  send_metrics_to_cloudwatch(business_metrics, namespace)
+
+                  # Store detailed analytics in S3
+                  store_analytics_data(business_metrics, bucket)
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'events_processed': business_metrics['events_processed'],
+                          'metrics_generated': len(business_metrics['metrics'])
+                      })
+                  }
+
+              except Exception as e:
+                  print(f"Error processing business metrics: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+          def process_order_event(event_data, metrics):
+              """Process order creation events"""
+              order_value = event_data.get('order_value', 0)
+              customer_type = event_data.get('customer_type', 'new')
+
+              metrics['metrics'].extend([
+                  {
+                      'MetricName': 'OrdersCreated',
+                      'Value': 1,
+                      'Unit': 'Count',
+                      'Dimensions': [
+                          {'Name': 'CustomerType', 'Value': customer_type}
+                      ]
+                  },
+                  {
+                      'MetricName': 'OrderValue',
+                      'Value': order_value,
+                      'Unit': 'None',
+                      'Dimensions': [
+                          {'Name': 'CustomerType', 'Value': customer_type}
+                      ]
+                  }
+              ])
+
+          def process_payment_event(event_data, metrics):
+              """Process payment events"""
+              payment_method = event_data.get('payment_method', 'unknown')
+              payment_amount = event_data.get('amount', 0)
+              success = event_data.get('success', True)
+
+              metrics['metrics'].extend([
+                  {
+                      'MetricName': 'PaymentProcessed',
+                      'Value': 1,
+                      'Unit': 'Count',
+                      'Dimensions': [
+                          {'Name': 'PaymentMethod', 'Value': payment_method},
+                          {'Name': 'Status', 'Value': 'success' if success else 'failed'}
+                      ]
+                  },
+                  {
+                      'MetricName': 'PaymentSuccessRate',
+                      'Value': 100 if success else 0,
+                      'Unit': 'Percent',
+                      'Dimensions': [
+                          {'Name': 'PaymentMethod', 'Value': payment_method}
+                      ]
+                  }
+              ])
+
+          def process_user_event(event_data, metrics):
+              """Process user registration events"""
+              registration_source = event_data.get('source', 'direct')
+
+              metrics['metrics'].append({
+                  'MetricName': 'UserRegistrations',
+                  'Value': 1,
+                  'Unit': 'Count',
+                  'Dimensions': [
+                      {'Name': 'Source', 'Value': registration_source}
+                  ]
+              })
+
+          def process_product_view_event(event_data, metrics):
+              """Process product view events"""
+              product_category = event_data.get('category', 'unknown')
+
+              metrics['metrics'].append({
+                  'MetricName': 'ProductViews',
+                  'Value': 1,
+                  'Unit': 'Count',
+                  'Dimensions': [
+                      {'Name': 'Category', 'Value': product_category}
+                  ]
+              })
+
+          def process_cart_abandonment_event(event_data, metrics):
+              """Process cart abandonment events"""
+              cart_value = event_data.get('cart_value', 0)
+
+              metrics['metrics'].extend([
+                  {
+                      'MetricName': 'CartAbandoned',
+                      'Value': 1,
+                      'Unit': 'Count'
+                  },
+                  {
+                      'MetricName': 'AbandonedCartValue',
+                      'Value': cart_value,
+                      'Unit': 'None'
+                  }
+              ])
+
+          def send_metrics_to_cloudwatch(metrics_data, namespace):
+              """Send metrics to CloudWatch"""
+              if metrics_data['metrics']:
+                  cloudwatch.put_metric_data(
+                      Namespace=namespace,
+                      MetricData=[
+                          {
+                              'MetricName': metric['MetricName'],
+                              'Value': metric['Value'],
+                              'Unit': metric['Unit'],
+                              'Dimensions': metric.get('Dimensions', []),
+                              'Timestamp': datetime.utcnow()
+                          }
+                          for metric in metrics_data['metrics']
+                      ]
+                  )
+
+          def store_analytics_data(metrics_data, bucket):
+              """Store detailed analytics in S3"""
+              timestamp = datetime.utcnow()
+              key = f"business_metrics/{timestamp.year}/{timestamp.month:02d}/{timestamp.day:02d}/{timestamp.hour:02d}/{timestamp.strftime('%Y%m%d-%H%M%S')}.json"
+
+              s3.put_object(
+                  Bucket=bucket,
+                  Key=key,
+                  Body=json.dumps(metrics_data, indent=2),
+                  ContentType='application/json'
+              )
+
+  BusinessMetricsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-business-metrics-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BusinessMetricsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                  - kinesis:DescribeStream
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:ListStreams
+                Resource: '*'
+
+  # Event Source Mapping for Kinesis
+  BusinessMetricsEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt BusinessMetricsStream.Arn
+      FunctionName: !Ref BusinessMetricsProcessor
+      StartingPosition: LATEST
+      BatchSize: 100
+      MaximumBatchingWindowInSeconds: 5
+
+  # DynamoDB Table for User Analytics
+  UserAnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${EnvironmentName}-user-analytics
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: UserAnalytics
+
+  # DynamoDB Table for Product Analytics
+  ProductAnalyticsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${EnvironmentName}-product-analytics
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: product_id
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: product_id
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: date
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: ProductAnalytics
+
+  # Lambda Function for Daily Business Reports
+  DailyBusinessReportFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-daily-business-report
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt BusinessReportRole.Arn
+      Timeout: 900
+      Environment:
+        Variables:
+          ANALYTICS_BUCKET: !Ref AnalyticsS3Bucket
+          CLOUDWATCH_NAMESPACE: 'SoleMate/Business'
+          ENVIRONMENT: !Ref EnvironmentName
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+
+          cloudwatch = boto3.client('cloudwatch')
+          s3 = boto3.client('s3')
+          ses = boto3.client('ses')
+
+          def lambda_handler(event, context):
+              try:
+                  # Generate daily business report
+                  report_data = generate_daily_report()
+
+                  # Store report in S3
+                  store_report(report_data)
+
+                  # Send email report (if configured)
+                  send_email_report(report_data)
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'Daily business report generated successfully',
+                          'report_date': report_data['date'],
+                          'metrics_count': len(report_data['metrics'])
+                      })
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+          def generate_daily_report():
+              """Generate comprehensive daily business report"""
+              end_time = datetime.utcnow()
+              start_time = end_time - timedelta(days=1)
+
+              report = {
+                  'date': end_time.strftime('%Y-%m-%d'),
+                  'period': f"{start_time.strftime('%Y-%m-%d %H:%M')} to {end_time.strftime('%Y-%m-%d %H:%M')}",
+                  'metrics': {},
+                  'kpis': {},
+                  'trends': {}
+              }
+
+              # Collect key business metrics
+              metrics_to_collect = [
+                  'OrdersCreated', 'OrderValue', 'PaymentProcessed',
+                  'UserRegistrations', 'ProductViews', 'CartAbandoned'
+              ]
+
+              for metric_name in metrics_to_collect:
+                  try:
+                      response = cloudwatch.get_metric_statistics(
+                          Namespace='SoleMate/Business',
+                          MetricName=metric_name,
+                          StartTime=start_time,
+                          EndTime=end_time,
+                          Period=86400,  # 1 day
+                          Statistics=['Sum', 'Average']
+                      )
+
+                      if response['Datapoints']:
+                          datapoint = response['Datapoints'][0]
+                          report['metrics'][metric_name] = {
+                              'sum': datapoint.get('Sum', 0),
+                              'average': datapoint.get('Average', 0)
+                          }
+                  except Exception as e:
+                      report['metrics'][metric_name] = {'error': str(e)}
+
+              # Calculate KPIs
+              report['kpis'] = calculate_kpis(report['metrics'])
+
+              # Analyze trends (compare with previous day)
+              report['trends'] = analyze_trends(start_time - timedelta(days=1), start_time)
+
+              return report
+
+          def calculate_kpis(metrics):
+              """Calculate key performance indicators"""
+              kpis = {}
+
+              try:
+                  # Conversion rate
+                  orders = metrics.get('OrdersCreated', {}).get('sum', 0)
+                  views = metrics.get('ProductViews', {}).get('sum', 1)
+                  kpis['conversion_rate'] = (orders / views) * 100 if views > 0 else 0
+
+                  # Average order value
+                  total_value = metrics.get('OrderValue', {}).get('sum', 0)
+                  kpis['average_order_value'] = total_value / orders if orders > 0 else 0
+
+                  # Payment success rate
+                  payment_metrics = metrics.get('PaymentProcessed', {})
+                  kpis['payment_success_rate'] = payment_metrics.get('average', 0)
+
+                  # Cart abandonment rate
+                  cart_abandoned = metrics.get('CartAbandoned', {}).get('sum', 0)
+                  kpis['cart_abandonment_rate'] = (cart_abandoned / (cart_abandoned + orders)) * 100 if (cart_abandoned + orders) > 0 else 0
+
+              except Exception as e:
+                  kpis['calculation_error'] = str(e)
+
+              return kpis
+
+          def analyze_trends(prev_start, prev_end):
+              """Analyze trends compared to previous period"""
+              # Implementation for trend analysis
+              return {
+                  'orders_trend': 'increasing',  # Placeholder
+                  'revenue_trend': 'stable',
+                  'user_growth': 'increasing'
+              }
+
+          def store_report(report_data):
+              """Store report in S3"""
+              bucket = os.environ['ANALYTICS_BUCKET']
+              date_str = report_data['date']
+              key = f"daily_reports/{date_str}/business_report.json"
+
+              s3.put_object(
+                  Bucket=bucket,
+                  Key=key,
+                  Body=json.dumps(report_data, indent=2),
+                  ContentType='application/json'
+              )
+
+          def send_email_report(report_data):
+              """Send email report (placeholder)"""
+              # Implementation for email reporting
+              pass
+
+  BusinessReportRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-business-report-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BusinessReportPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:GetMetricStatistics
+                  - s3:PutObject
+                  - s3:GetObject
+                  - ses:SendEmail
+                Resource: '*'
+
+  # EventBridge Rule for Daily Reports
+  DailyReportSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-daily-business-report
+      Description: Generate daily business report
+      ScheduleExpression: 'cron(0 6 * * ? *)'  # Daily at 6 AM UTC
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DailyBusinessReportFunction.Arn
+          Id: DailyBusinessReportTarget
+
+  # Permission for EventBridge to invoke Lambda
+  DailyReportInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DailyBusinessReportFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyReportSchedule.Arn
+
+Outputs:
+  BusinessMetricsStreamName:
+    Description: Kinesis stream name for business metrics
+    Value: !Ref BusinessMetricsStream
+    Export:
+      Name: !Sub ${EnvironmentName}-BusinessMetricsStream
+
+  BusinessMetricsProcessorArn:
+    Description: Business metrics processor Lambda function ARN
+    Value: !GetAtt BusinessMetricsProcessor.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-BusinessMetricsProcessor
+
+  UserAnalyticsTableName:
+    Description: DynamoDB table for user analytics
+    Value: !Ref UserAnalyticsTable
+    Export:
+      Name: !Sub ${EnvironmentName}-UserAnalyticsTable
+
+  ProductAnalyticsTableName:
+    Description: DynamoDB table for product analytics
+    Value: !Ref ProductAnalyticsTable
+    Export:
+      Name: !Sub ${EnvironmentName}-ProductAnalyticsTable

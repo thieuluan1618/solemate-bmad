@@ -1,0 +1,383 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SoleMate Centralized Logging Infrastructure'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: Environment name prefix
+
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: Number of days to retain logs
+
+  VpcId:
+    Type: String
+    Description: VPC ID for OpenSearch domain
+
+  PrivateSubnet1:
+    Type: String
+    Description: Private subnet for OpenSearch
+
+  PrivateSubnet2:
+    Type: String
+    Description: Private subnet for OpenSearch
+
+Resources:
+  # CloudWatch Log Groups
+  ApplicationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/${EnvironmentName}/application
+      RetentionInDays: !Ref LogRetentionDays
+
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/applicationloadbalancer/${EnvironmentName}
+      RetentionInDays: !Ref LogRetentionDays
+
+  DatabaseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/rds/instance/${EnvironmentName}-postgres/postgresql
+      RetentionInDays: !Ref LogRetentionDays
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EnvironmentName}
+      RetentionInDays: !Ref LogRetentionDays
+
+  # OpenSearch Domain for Log Analytics
+  OpenSearchServiceRole:
+    Type: AWS::IAM::ServiceLinkedRole
+    Properties:
+      AWSServiceName: opensearch.amazonaws.com
+
+  OpenSearchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub ${EnvironmentName}-opensearch-sg
+      GroupDescription: Security group for OpenSearch domain
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-opensearch-sg
+
+  OpenSearchDomain:
+    Type: AWS::OpenSearch::Domain
+    Properties:
+      DomainName: !Sub ${EnvironmentName}-logs
+      EngineVersion: 'OpenSearch_2.3'
+      ClusterConfig:
+        InstanceType: t3.small.search
+        InstanceCount: 2
+        DedicatedMasterEnabled: false
+      EBSOptions:
+        EBSEnabled: true
+        VolumeType: gp3
+        VolumeSize: 20
+      VPCOptions:
+        SecurityGroupIds:
+          - !Ref OpenSearchSecurityGroup
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+      EncryptionAtRestOptions:
+        Enabled: true
+      NodeToNodeEncryptionOptions:
+        Enabled: true
+      DomainEndpointOptions:
+        EnforceHTTPS: true
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'es:*'
+            Resource: !Sub 'arn:aws:es:${AWS::Region}:${AWS::AccountId}:domain/${EnvironmentName}-logs/*'
+      AdvancedSecurityOptions:
+        Enabled: true
+        InternalUserDatabaseEnabled: true
+        MasterUserOptions:
+          MasterUserName: admin
+          MasterUserPassword: TempPassword123!
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-opensearch
+
+  # Kinesis Data Firehose for Log Delivery
+  LogDeliveryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-firehose-delivery-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseDeliveryPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                Resource:
+                  - !Sub '${LoggingBucket}/*'
+                  - !Ref LoggingBucket
+              - Effect: Allow
+                Action:
+                  - es:DescribeDomain
+                  - es:DescribeDomains
+                  - es:DescribeDomainConfig
+                  - es:ESHttpPost
+                  - es:ESHttpPut
+                Resource: !GetAtt OpenSearchDomain.DomainArn
+              - Effect: Allow
+                Action:
+                  - logs:PutLogEvents
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/kinesisfirehose/*'
+
+  # S3 Bucket for Log Storage
+  LoggingBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${EnvironmentName}-solemate-logs-${AWS::AccountId}
+      LifecycleConfiguration:
+        Rules:
+          - Id: LogRetention
+            Status: Enabled
+            ExpirationInDays: !Ref LogRetentionDays
+          - Id: TransitionToIA
+            Status: Enabled
+            TransitionInDays: 30
+            StorageClass: STANDARD_IA
+          - Id: TransitionToGlacier
+            Status: Enabled
+            TransitionInDays: 90
+            StorageClass: GLACIER
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # Kinesis Data Firehose Delivery Stream
+  LogDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub ${EnvironmentName}-log-delivery
+      DeliveryStreamType: DirectPut
+      AmazonopensearchserverlessDestinationConfiguration:
+        IndexName: application-logs
+        RoleARN: !GetAtt LogDeliveryRole.Arn
+        DomainARN: !GetAtt OpenSearchDomain.DomainArn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 5
+        RetryDuration: 300
+        S3BackupMode: AllDocuments
+        S3Configuration:
+          BucketARN: !GetAtt LoggingBucket.Arn
+          BufferingHints:
+            IntervalInSeconds: 300
+            SizeInMBs: 5
+          CompressionFormat: GZIP
+          Prefix: 'logs/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/'
+          ErrorOutputPrefix: 'errors/'
+          RoleARN: !GetAtt LogDeliveryRole.Arn
+
+  # Lambda Function for Log Processing
+  LogProcessingFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-log-processor
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt LogProcessingRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          OPENSEARCH_ENDPOINT: !GetAtt OpenSearchDomain.DomainEndpoint
+          FIREHOSE_DELIVERY_STREAM: !Ref LogDeliveryStream
+      Code:
+        ZipFile: |
+          import json
+          import base64
+          import gzip
+          import boto3
+          import os
+          from datetime import datetime
+
+          firehose = boto3.client('firehose')
+
+          def lambda_handler(event, context):
+              delivery_stream = os.environ['FIREHOSE_DELIVERY_STREAM']
+
+              for record in event['Records']:
+                  # Decode and decompress CloudWatch Logs data
+                  compressed_payload = base64.b64decode(record['kinesis']['data'])
+                  uncompressed_payload = gzip.decompress(compressed_payload)
+                  log_data = json.loads(uncompressed_payload)
+
+                  # Process each log event
+                  for log_event in log_data['logEvents']:
+                      # Parse and enrich log message
+                      message = {
+                          'timestamp': datetime.fromtimestamp(log_event['timestamp'] / 1000).isoformat(),
+                          'log_group': log_data['logGroup'],
+                          'log_stream': log_data['logStream'],
+                          'message': log_event['message'],
+                          'environment': os.environ.get('ENVIRONMENT', 'production')
+                      }
+
+                      # Extract structured data from message if possible
+                      try:
+                          if log_event['message'].startswith('{'):
+                              parsed_message = json.loads(log_event['message'])
+                              message.update(parsed_message)
+                      except:
+                          pass
+
+                      # Send to Kinesis Data Firehose
+                      firehose.put_record(
+                          DeliveryStreamName=delivery_stream,
+                          Record={'Data': json.dumps(message) + '\n'}
+                      )
+
+              return {'batchItemFailures': []}
+
+  LogProcessingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-log-processing-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LogProcessingPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - firehose:PutRecord
+                  - firehose:PutRecordBatch
+                Resource: !GetAtt LogDeliveryStream.Arn
+              - Effect: Allow
+                Action:
+                  - kinesis:DescribeStream
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:ListStreams
+                Resource: '*'
+
+  # CloudWatch Subscription Filter
+  ApplicationLogSubscriptionFilter:
+    Type: AWS::Logs::SubscriptionFilter
+    Properties:
+      LogGroupName: !Ref ApplicationLogGroup
+      FilterPattern: ''
+      DestinationArn: !GetAtt LogProcessingFunction.Arn
+
+  # Permission for CloudWatch Logs to invoke Lambda
+  LogsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LogProcessingFunction
+      Principal: logs.amazonaws.com
+      SourceArn: !Sub '${ApplicationLogGroup.Arn}:*'
+
+  # CloudWatch Dashboard for Logging
+  LoggingDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub ${EnvironmentName}-logging-overview
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "log",
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '${ApplicationLogGroup}'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 50",
+                "region": "${AWS::Region}",
+                "title": "Recent Application Errors"
+              }
+            },
+            {
+              "type": "log",
+              "x": 0,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '${ApplicationLogGroup}'\n| stats count() by bin(5m)",
+                "region": "${AWS::Region}",
+                "title": "Log Volume Over Time"
+              }
+            },
+            {
+              "type": "log",
+              "x": 12,
+              "y": 6,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '${ApplicationLogGroup}'\n| filter @message like /level/\n| stats count() by level\n| sort count desc",
+                "region": "${AWS::Region}",
+                "title": "Log Levels Distribution"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  OpenSearchDomainEndpoint:
+    Description: OpenSearch domain endpoint
+    Value: !GetAtt OpenSearchDomain.DomainEndpoint
+    Export:
+      Name: !Sub ${EnvironmentName}-OpenSearchEndpoint
+
+  LoggingBucket:
+    Description: S3 bucket for log storage
+    Value: !Ref LoggingBucket
+    Export:
+      Name: !Sub ${EnvironmentName}-LoggingBucket
+
+  ApplicationLogGroup:
+    Description: CloudWatch Log Group for applications
+    Value: !Ref ApplicationLogGroup
+    Export:
+      Name: !Sub ${EnvironmentName}-ApplicationLogGroup

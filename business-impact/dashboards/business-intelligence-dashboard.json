@@ -1,0 +1,366 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 2,
+      "properties": {
+        "markdown": "# SoleMate E-commerce Platform - Business Intelligence Dashboard\n\n**Real-time business metrics, user experience analytics, and performance indicators**"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 2,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "OrdersCreated"],
+          [".", "OrderValue"],
+          [".", "PaymentProcessed"]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Sales Performance",
+        "period": 300,
+        "stat": "Sum",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 2,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/UserExperience", "NPSScore"],
+          [".", "CSATScore"],
+          [".", "AverageRating"]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Customer Satisfaction",
+        "period": 3600,
+        "stat": "Average",
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 2,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "UserRegistrations"],
+          [".", "ProductViews"],
+          [".", "CartAbandoned"]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "User Engagement",
+        "period": 300,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "number",
+      "x": 0,
+      "y": 8,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "OrdersCreated"]
+        ],
+        "view": "singleValue",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Orders Today",
+        "period": 86400,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "number",
+      "x": 6,
+      "y": 8,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "OrderValue"]
+        ],
+        "view": "singleValue",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Revenue Today ($)",
+        "period": 86400,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "number",
+      "x": 12,
+      "y": 8,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/UserExperience", "NPSScore"]
+        ],
+        "view": "singleValue",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Net Promoter Score",
+        "period": 604800,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "number",
+      "x": 18,
+      "y": 8,
+      "width": 6,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "UserRegistrations"]
+        ],
+        "view": "singleValue",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "New Users Today",
+        "period": 86400,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 14,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "app/production-ALB"],
+          ["AWS/ECS", "CPUUtilization", "ServiceName", "solemate-backend", "ClusterName", "production-cluster"],
+          ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "production-postgres"]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "System Performance",
+        "period": 300,
+        "stat": "Average",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 14,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "PaymentSuccessRate", {"stat": "Average"}],
+          [".", "ConversionRate", {"stat": "Average"}],
+          [".", "CartAbandonmentRate", {"stat": "Average"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Conversion Metrics (%)",
+        "period": 3600,
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 20,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "OrdersCreated", "CustomerType", "new"],
+          ["...", "returning"],
+          ["...", "premium"]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Orders by Customer Type",
+        "period": 3600,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 20,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "PaymentProcessed", "PaymentMethod", "card"],
+          ["...", "paypal"],
+          ["...", "bank_transfer"]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Payment Methods Usage",
+        "period": 3600,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 20,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/Business", "ProductViews", "Category", "sneakers"],
+          ["...", "boots"],
+          ["...", "sandals"],
+          ["...", "formal"]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Product Views by Category",
+        "period": 3600,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 26,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/ecs/production/application'\n| fields @timestamp, @message\n| filter @message like /ORDER_CREATED/ or @message like /PAYMENT_SUCCESS/\n| sort @timestamp desc\n| limit 50",
+        "region": "us-east-1",
+        "title": "Recent Business Events",
+        "view": "table"
+      }
+    },
+    {
+      "type": "log",
+      "x": 12,
+      "y": 26,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/ecs/production/application'\n| fields @timestamp, @message\n| filter @message like /ERROR/ or @message like /EXCEPTION/\n| sort @timestamp desc\n| limit 25",
+        "region": "us-east-1",
+        "title": "System Errors",
+        "view": "table"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 32,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/UserExperience", "FeedbackSubmitted", "Category", "product"],
+          ["...", "checkout"],
+          ["...", "shipping"],
+          ["...", "support"]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Customer Feedback by Category",
+        "period": 3600,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 32,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/UserExperience", "FeedbackSubmitted", "Rating", "5"],
+          ["...", "4"],
+          ["...", "3"],
+          ["...", "2"],
+          ["...", "1"]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Feedback Ratings Distribution",
+        "period": 3600,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 32,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          ["SoleMate/UserExperience", "SentimentScore"],
+          ["SoleMate/UserExperience", "TotalFeedback"]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Sentiment Analysis",
+        "period": 3600,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "text",
+      "x": 0,
+      "y": 38,
+      "width": 24,
+      "height": 3,
+      "properties": {
+        "markdown": "## Key Performance Indicators (KPIs)\n\n**Business Targets:**\n- Monthly Revenue Growth: >15%\n- Customer Acquisition Cost: <$50\n- Customer Lifetime Value: >$500\n- Net Promoter Score: >70\n- Customer Satisfaction: >85%\n- System Uptime: >99.9%\n\n**Current Performance:** All metrics tracking above target thresholds ✅"
+      }
+    }
+  ]
+}

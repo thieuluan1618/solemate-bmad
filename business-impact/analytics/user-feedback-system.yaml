@@ -1,0 +1,655 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SoleMate User Feedback and Analytics System'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: 'production'
+    Description: Environment name prefix
+
+  FeedbackS3Bucket:
+    Type: String
+    Description: S3 bucket for feedback data storage
+
+Resources:
+  # DynamoDB Table for User Feedback
+  UserFeedbackTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${EnvironmentName}-user-feedback
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: feedback_id
+          AttributeType: S
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: created_at
+          AttributeType: S
+      KeySchema:
+        - AttributeName: feedback_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: user-index
+          KeySchema:
+            - AttributeName: user_id
+              KeyType: HASH
+            - AttributeName: created_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: date-index
+          KeySchema:
+            - AttributeName: created_at
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+        - Key: Purpose
+          Value: UserFeedback
+
+  # Lambda Function for Feedback Processing
+  FeedbackProcessorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-feedback-processor
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt FeedbackProcessorRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          FEEDBACK_TABLE: !Ref UserFeedbackTable
+          CLOUDWATCH_NAMESPACE: 'SoleMate/UserExperience'
+          FEEDBACK_BUCKET: !Ref FeedbackS3Bucket
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime
+          import uuid
+
+          dynamodb = boto3.resource('dynamodb')
+          cloudwatch = boto3.client('cloudwatch')
+          s3 = boto3.client('s3')
+          comprehend = boto3.client('comprehend')
+
+          def lambda_handler(event, context):
+              table_name = os.environ['FEEDBACK_TABLE']
+              table = dynamodb.Table(table_name)
+              namespace = os.environ['CLOUDWATCH_NAMESPACE']
+
+              try:
+                  if event.get('source') == 'api_gateway':
+                      # Direct API call for feedback submission
+                      return handle_feedback_submission(event, table, namespace)
+                  else:
+                      # DynamoDB stream event for feedback analysis
+                      return handle_feedback_analysis(event, table, namespace)
+
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+          def handle_feedback_submission(event, table, namespace):
+              """Handle new feedback submission via API"""
+              body = json.loads(event.get('body', '{}'))
+
+              feedback_data = {
+                  'feedback_id': str(uuid.uuid4()),
+                  'user_id': body.get('user_id', 'anonymous'),
+                  'rating': int(body.get('rating', 0)),
+                  'category': body.get('category', 'general'),
+                  'comment': body.get('comment', ''),
+                  'page_url': body.get('page_url', ''),
+                  'user_agent': event.get('headers', {}).get('User-Agent', ''),
+                  'created_at': datetime.utcnow().isoformat(),
+                  'processed': False
+              }
+
+              # Store feedback in DynamoDB
+              table.put_item(Item=feedback_data)
+
+              # Send immediate metrics to CloudWatch
+              cloudwatch.put_metric_data(
+                  Namespace=namespace,
+                  MetricData=[
+                      {
+                          'MetricName': 'FeedbackSubmitted',
+                          'Value': 1,
+                          'Unit': 'Count',
+                          'Dimensions': [
+                              {'Name': 'Category', 'Value': feedback_data['category']},
+                              {'Name': 'Rating', 'Value': str(feedback_data['rating'])}
+                          ]
+                      }
+                  ]
+              )
+
+              return {
+                  'statusCode': 200,
+                  'headers': {
+                      'Access-Control-Allow-Origin': '*',
+                      'Access-Control-Allow-Headers': 'Content-Type',
+                      'Access-Control-Allow-Methods': 'OPTIONS,POST'
+                  },
+                  'body': json.dumps({
+                      'message': 'Feedback submitted successfully',
+                      'feedback_id': feedback_data['feedback_id']
+                  })
+              }
+
+          def handle_feedback_analysis(event, table, namespace):
+              """Analyze feedback using DynamoDB stream events"""
+              for record in event['Records']:
+                  if record['eventName'] == 'INSERT':
+                      feedback_data = record['dynamodb']['NewImage']
+
+                      # Extract feedback details
+                      comment = feedback_data.get('comment', {}).get('S', '')
+                      rating = int(feedback_data.get('rating', {}).get('N', '0'))
+                      category = feedback_data.get('category', {}).get('S', 'general')
+
+                      # Perform sentiment analysis if comment exists
+                      sentiment_score = 0
+                      if comment:
+                          sentiment_score = analyze_sentiment(comment)
+
+                      # Calculate satisfaction metrics
+                      satisfaction_metrics = calculate_satisfaction_metrics(rating, sentiment_score)
+
+                      # Send detailed metrics to CloudWatch
+                      send_detailed_metrics(satisfaction_metrics, category, namespace)
+
+                      # Store analysis results
+                      store_analysis_results(feedback_data, sentiment_score, satisfaction_metrics)
+
+              return {'statusCode': 200}
+
+          def analyze_sentiment(comment):
+              """Analyze sentiment of feedback comment"""
+              try:
+                  response = comprehend.detect_sentiment(
+                      Text=comment,
+                      LanguageCode='en'
+                  )
+
+                  sentiment_scores = response['SentimentScore']
+                  # Calculate composite sentiment score (-1 to 1)
+                  sentiment_score = (
+                      sentiment_scores['Positive'] * 1 +
+                      sentiment_scores['Neutral'] * 0 +
+                      sentiment_scores['Negative'] * -1 +
+                      sentiment_scores['Mixed'] * 0
+                  )
+
+                  return sentiment_score
+
+              except Exception as e:
+                  print(f"Sentiment analysis error: {str(e)}")
+                  return 0
+
+          def calculate_satisfaction_metrics(rating, sentiment_score):
+              """Calculate various satisfaction metrics"""
+              # Net Promoter Score categorization
+              if rating >= 9:
+                  nps_category = 'promoter'
+              elif rating >= 7:
+                  nps_category = 'passive'
+              else:
+                  nps_category = 'detractor'
+
+              # Customer Satisfaction Score
+              csat_satisfied = 1 if rating >= 4 else 0
+
+              # Customer Effort Score (inverse of rating for effort)
+              ces_score = 6 - rating if rating > 0 else 5
+
+              return {
+                  'nps_category': nps_category,
+                  'csat_satisfied': csat_satisfied,
+                  'ces_score': ces_score,
+                  'sentiment_score': sentiment_score,
+                  'overall_satisfaction': (rating + (sentiment_score + 1) * 5) / 2
+              }
+
+          def send_detailed_metrics(metrics, category, namespace):
+              """Send detailed satisfaction metrics to CloudWatch"""
+              metric_data = [
+                  {
+                      'MetricName': 'CustomerSatisfaction',
+                      'Value': metrics['overall_satisfaction'],
+                      'Unit': 'None',
+                      'Dimensions': [{'Name': 'Category', 'Value': category}]
+                  },
+                  {
+                      'MetricName': 'SentimentScore',
+                      'Value': metrics['sentiment_score'],
+                      'Unit': 'None',
+                      'Dimensions': [{'Name': 'Category', 'Value': category}]
+                  },
+                  {
+                      'MetricName': 'NPSResponse',
+                      'Value': 1,
+                      'Unit': 'Count',
+                      'Dimensions': [
+                          {'Name': 'Category', 'Value': category},
+                          {'Name': 'NPSCategory', 'Value': metrics['nps_category']}
+                      ]
+                  },
+                  {
+                      'MetricName': 'CSATSatisfied',
+                      'Value': metrics['csat_satisfied'],
+                      'Unit': 'Count',
+                      'Dimensions': [{'Name': 'Category', 'Value': category}]
+                  }
+              ]
+
+              cloudwatch.put_metric_data(
+                  Namespace=namespace,
+                  MetricData=metric_data
+              )
+
+          def store_analysis_results(feedback_data, sentiment_score, metrics):
+              """Store detailed analysis results in S3"""
+              bucket = os.environ['FEEDBACK_BUCKET']
+              feedback_id = feedback_data.get('feedback_id', {}).get('S', 'unknown')
+
+              analysis_data = {
+                  'feedback_id': feedback_id,
+                  'analysis_timestamp': datetime.utcnow().isoformat(),
+                  'sentiment_score': sentiment_score,
+                  'satisfaction_metrics': metrics,
+                  'feedback_summary': {
+                      'rating': feedback_data.get('rating', {}).get('N'),
+                      'category': feedback_data.get('category', {}).get('S'),
+                      'has_comment': bool(feedback_data.get('comment', {}).get('S'))
+                  }
+              }
+
+              timestamp = datetime.utcnow()
+              key = f"feedback_analysis/{timestamp.year}/{timestamp.month:02d}/{timestamp.day:02d}/{feedback_id}.json"
+
+              s3.put_object(
+                  Bucket=bucket,
+                  Key=key,
+                  Body=json.dumps(analysis_data, indent=2),
+                  ContentType='application/json'
+              )
+
+  FeedbackProcessorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-feedback-processor-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FeedbackProcessorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetRecords
+                  - dynamodb:GetShardIterator
+                  - dynamodb:ListStreams
+                Resource: !GetAtt UserFeedbackTable.Arn
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource: !Sub '${FeedbackS3Bucket}/*'
+              - Effect: Allow
+                Action:
+                  - comprehend:DetectSentiment
+                Resource: '*'
+
+  # Event Source Mapping for DynamoDB Stream
+  FeedbackStreamEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt UserFeedbackTable.StreamArn
+      FunctionName: !Ref FeedbackProcessorFunction
+      StartingPosition: LATEST
+      BatchSize: 10
+      MaximumBatchingWindowInSeconds: 5
+
+  # Lambda Function for User Experience Analytics
+  UserExperienceAnalyticsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${EnvironmentName}-user-experience-analytics
+      Runtime: python3.9
+      Handler: index.lambda_handler
+      Role: !GetAtt UserExperienceAnalyticsRole.Arn
+      Timeout: 900
+      Environment:
+        Variables:
+          FEEDBACK_TABLE: !Ref UserFeedbackTable
+          CLOUDWATCH_NAMESPACE: 'SoleMate/UserExperience'
+          ANALYTICS_BUCKET: !Ref FeedbackS3Bucket
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+          from decimal import Decimal
+
+          dynamodb = boto3.resource('dynamodb')
+          cloudwatch = boto3.client('cloudwatch')
+          s3 = boto3.client('s3')
+
+          def lambda_handler(event, context):
+              try:
+                  # Generate comprehensive user experience analytics
+                  analytics_data = generate_ux_analytics()
+
+                  # Store analytics in S3
+                  store_analytics_data(analytics_data)
+
+                  # Send summary metrics to CloudWatch
+                  send_summary_metrics(analytics_data)
+
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'User experience analytics generated successfully',
+                          'analysis_date': analytics_data['date'],
+                          'total_feedback': analytics_data['summary']['total_feedback']
+                      })
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+
+          def generate_ux_analytics():
+              """Generate comprehensive UX analytics"""
+              table = dynamodb.Table(os.environ['FEEDBACK_TABLE'])
+              end_time = datetime.utcnow()
+              start_time = end_time - timedelta(days=7)  # Weekly analysis
+
+              analytics = {
+                  'date': end_time.strftime('%Y-%m-%d'),
+                  'period': f"{start_time.strftime('%Y-%m-%d')} to {end_time.strftime('%Y-%m-%d')}",
+                  'summary': {},
+                  'nps_analysis': {},
+                  'csat_analysis': {},
+                  'sentiment_analysis': {},
+                  'category_breakdown': {},
+                  'trends': {}
+              }
+
+              # Scan recent feedback (in production, use GSI with date range)
+              response = table.scan(
+                  FilterExpression='created_at BETWEEN :start_time AND :end_time',
+                  ExpressionAttributeValues={
+                      ':start_time': start_time.isoformat(),
+                      ':end_time': end_time.isoformat()
+                  }
+              )
+
+              feedback_items = response['Items']
+
+              # Calculate summary metrics
+              analytics['summary'] = calculate_summary_metrics(feedback_items)
+
+              # Calculate NPS (Net Promoter Score)
+              analytics['nps_analysis'] = calculate_nps(feedback_items)
+
+              # Calculate CSAT (Customer Satisfaction Score)
+              analytics['csat_analysis'] = calculate_csat(feedback_items)
+
+              # Analyze sentiment trends
+              analytics['sentiment_analysis'] = analyze_sentiment_trends(feedback_items)
+
+              # Category breakdown
+              analytics['category_breakdown'] = analyze_by_category(feedback_items)
+
+              # Identify trends and insights
+              analytics['trends'] = identify_trends(feedback_items)
+
+              return analytics
+
+          def calculate_summary_metrics(feedback_items):
+              """Calculate overall summary metrics"""
+              if not feedback_items:
+                  return {'total_feedback': 0}
+
+              total_feedback = len(feedback_items)
+              ratings = [int(item.get('rating', 0)) for item in feedback_items]
+              average_rating = sum(ratings) / len(ratings) if ratings else 0
+
+              return {
+                  'total_feedback': total_feedback,
+                  'average_rating': round(average_rating, 2),
+                  'response_rate': round((total_feedback / 1000) * 100, 2),  # Assuming 1000 daily active users
+                  'feedback_with_comments': len([item for item in feedback_items if item.get('comment')])
+              }
+
+          def calculate_nps(feedback_items):
+              """Calculate Net Promoter Score"""
+              if not feedback_items:
+                  return {'nps_score': 0, 'total_responses': 0}
+
+              ratings = [int(item.get('rating', 0)) for item in feedback_items]
+              total_responses = len(ratings)
+
+              promoters = len([r for r in ratings if r >= 9])
+              detractors = len([r for r in ratings if r <= 6])
+
+              nps_score = ((promoters - detractors) / total_responses) * 100 if total_responses > 0 else 0
+
+              return {
+                  'nps_score': round(nps_score, 1),
+                  'total_responses': total_responses,
+                  'promoters': promoters,
+                  'passives': total_responses - promoters - detractors,
+                  'detractors': detractors,
+                  'promoter_percentage': round((promoters / total_responses) * 100, 1) if total_responses > 0 else 0
+              }
+
+          def calculate_csat(feedback_items):
+              """Calculate Customer Satisfaction Score"""
+              if not feedback_items:
+                  return {'csat_score': 0, 'total_responses': 0}
+
+              ratings = [int(item.get('rating', 0)) for item in feedback_items]
+              total_responses = len(ratings)
+
+              satisfied = len([r for r in ratings if r >= 4])
+              csat_score = (satisfied / total_responses) * 100 if total_responses > 0 else 0
+
+              return {
+                  'csat_score': round(csat_score, 1),
+                  'total_responses': total_responses,
+                  'satisfied_customers': satisfied,
+                  'satisfaction_rate': round(csat_score, 1)
+              }
+
+          def analyze_sentiment_trends(feedback_items):
+              """Analyze sentiment trends from comments"""
+              comments = [item.get('comment', '') for item in feedback_items if item.get('comment')]
+
+              if not comments:
+                  return {'average_sentiment': 0, 'total_comments': 0}
+
+              # Placeholder for sentiment analysis results
+              # In real implementation, this would use the sentiment scores stored from previous analysis
+              return {
+                  'total_comments': len(comments),
+                  'average_sentiment': 0.1,  # Placeholder
+                  'positive_comments': len(comments) // 2,  # Placeholder
+                  'negative_comments': len(comments) // 4,  # Placeholder
+                  'neutral_comments': len(comments) // 4   # Placeholder
+              }
+
+          def analyze_by_category(feedback_items):
+              """Analyze feedback by category"""
+              categories = {}
+              for item in feedback_items:
+                  category = item.get('category', 'general')
+                  if category not in categories:
+                      categories[category] = {'count': 0, 'total_rating': 0, 'ratings': []}
+
+                  categories[category]['count'] += 1
+                  rating = int(item.get('rating', 0))
+                  categories[category]['total_rating'] += rating
+                  categories[category]['ratings'].append(rating)
+
+              # Calculate averages
+              for category, data in categories.items():
+                  data['average_rating'] = data['total_rating'] / data['count'] if data['count'] > 0 else 0
+
+              return categories
+
+          def identify_trends(feedback_items):
+              """Identify trends and insights"""
+              # Placeholder for trend analysis
+              return {
+                  'trending_issues': ['checkout process', 'product search'],
+                  'improvement_areas': ['mobile experience', 'payment options'],
+                  'positive_highlights': ['product quality', 'delivery speed'],
+                  'recommendation': 'Focus on mobile UX improvements'
+              }
+
+          def store_analytics_data(analytics_data):
+              """Store analytics data in S3"""
+              bucket = os.environ['ANALYTICS_BUCKET']
+              date_str = analytics_data['date']
+              key = f"user_experience_analytics/{date_str}/ux_analytics.json"
+
+              s3.put_object(
+                  Bucket=bucket,
+                  Key=key,
+                  Body=json.dumps(analytics_data, indent=2, default=str),
+                  ContentType='application/json'
+              )
+
+          def send_summary_metrics(analytics_data):
+              """Send summary metrics to CloudWatch"""
+              namespace = os.environ['CLOUDWATCH_NAMESPACE']
+
+              metric_data = [
+                  {
+                      'MetricName': 'NPSScore',
+                      'Value': analytics_data['nps_analysis']['nps_score'],
+                      'Unit': 'None'
+                  },
+                  {
+                      'MetricName': 'CSATScore',
+                      'Value': analytics_data['csat_analysis']['csat_score'],
+                      'Unit': 'Percent'
+                  },
+                  {
+                      'MetricName': 'AverageRating',
+                      'Value': analytics_data['summary']['average_rating'],
+                      'Unit': 'None'
+                  },
+                  {
+                      'MetricName': 'TotalFeedback',
+                      'Value': analytics_data['summary']['total_feedback'],
+                      'Unit': 'Count'
+                  }
+              ]
+
+              cloudwatch.put_metric_data(
+                  Namespace=namespace,
+                  MetricData=metric_data
+              )
+
+  UserExperienceAnalyticsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${EnvironmentName}-ux-analytics-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: UXAnalyticsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !GetAtt UserFeedbackTable.Arn
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource: !Sub '${FeedbackS3Bucket}/*'
+
+  # EventBridge Rule for Weekly UX Analytics
+  WeeklyUXAnalyticsSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${EnvironmentName}-weekly-ux-analytics
+      Description: Generate weekly user experience analytics
+      ScheduleExpression: 'cron(0 8 ? * MON *)'  # Every Monday at 8 AM UTC
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt UserExperienceAnalyticsFunction.Arn
+          Id: WeeklyUXAnalyticsTarget
+
+  # Permission for EventBridge to invoke Lambda
+  WeeklyUXAnalyticsInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref UserExperienceAnalyticsFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WeeklyUXAnalyticsSchedule.Arn
+
+Outputs:
+  UserFeedbackTableName:
+    Description: DynamoDB table for user feedback
+    Value: !Ref UserFeedbackTable
+    Export:
+      Name: !Sub ${EnvironmentName}-UserFeedbackTable
+
+  FeedbackProcessorFunctionArn:
+    Description: Feedback processor Lambda function ARN
+    Value: !GetAtt FeedbackProcessorFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-FeedbackProcessor
+
+  UserExperienceAnalyticsFunctionArn:
+    Description: User experience analytics Lambda function ARN
+    Value: !GetAtt UserExperienceAnalyticsFunction.Arn
+    Export:
+      Name: !Sub ${EnvironmentName}-UXAnalytics
