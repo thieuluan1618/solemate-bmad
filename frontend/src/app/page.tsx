@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { Button, Input } from '@/components/ui'
 
 export default function Home() {
@@ -15,8 +16,12 @@ export default function Home() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="outline">Login</Button>
-              <Button variant="primary">Sign Up</Button>
+              <Link href="/login">
+                <Button variant="outline">Login</Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="primary">Sign Up</Button>
+              </Link>
             </div>
           </div>
         </div>
@@ -32,42 +37,16 @@ export default function Home() {
             Your premier destination for the latest in footwear fashion
           </p>
 
-          {/* Test our components */}
+          {/* Call to Action */}
           <div className="max-w-md mx-auto space-y-4">
-            <div className="card p-6">
-              <h3 className="text-lg font-semibold mb-4">Test Our Components</h3>
-
-              <div className="space-y-4">
-                <Input
-                  label="Email"
-                  type="email"
-                  placeholder="Enter your email"
-                />
-
-                <Input
-                  label="Password"
-                  type="password"
-                  placeholder="Enter your password"
-                />
-
-                <div className="flex space-x-2">
-                  <Button variant="primary" className="flex-1">
-                    Primary Button
-                  </Button>
-                  <Button variant="secondary" className="flex-1">
-                    Secondary Button
-                  </Button>
-                </div>
-
-                <Button variant="outline" className="w-full">
-                  Outline Button
-                </Button>
-
-                <Button variant="ghost" className="w-full">
-                  Ghost Button
-                </Button>
-              </div>
-            </div>
+            <Link href="/products">
+              <Button variant="primary" className="w-full text-lg py-4">
+                Shop Now
+              </Button>
+            </Link>
+            <p className="text-center text-gray-600">
+              Discover our collection of premium footwear
+            </p>
           </div>
         </div>
       </main>
