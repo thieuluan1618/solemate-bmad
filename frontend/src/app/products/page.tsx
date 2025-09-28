@@ -15,7 +15,7 @@ function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className="card group cursor-pointer transform hover:scale-105 transition-all duration-200"
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 group cursor-pointer transform hover:scale-105 transition-all duration-200"
       onClick={() => router.push(`/products/${product.id}`)}
     >
       <div className="aspect-square overflow-hidden rounded-lg bg-gray-100 mb-4">
@@ -214,7 +214,7 @@ export default function ProductsPage() {
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64"
+                  className="w-64 h-10"
                 />
                 <Button type="submit" variant="primary">
                   Search
@@ -229,7 +229,7 @@ export default function ProductsPage() {
         <div className="lg:grid lg:grid-cols-4 lg:gap-8">
           {/* Filters Sidebar */}
           <div className="lg:col-span-1">
-            <div className="card p-6 sticky top-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Filters</h3>
                 <Button variant="ghost" onClick={clearFilters} className="text-sm">
@@ -296,14 +296,14 @@ export default function ProductsPage() {
                       placeholder="Min"
                       value={filters.minPrice || ''}
                       onChange={(e) => handleFilterChange({ minPrice: parseFloat(e.target.value) || undefined })}
-                      className="text-sm"
+                      className="text-sm h-9"
                     />
                     <Input
                       type="number"
                       placeholder="Max"
                       value={filters.maxPrice || ''}
                       onChange={(e) => handleFilterChange({ maxPrice: parseFloat(e.target.value) || undefined })}
-                      className="text-sm"
+                      className="text-sm h-9"
                     />
                   </div>
                 </FilterSection>
@@ -383,7 +383,7 @@ export default function ProductsPage() {
             {productsLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(12)].map((_, i) => (
-                  <div key={i} className="card animate-pulse">
+                  <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 animate-pulse">
                     <div className="aspect-square bg-gray-200 rounded-lg mb-4"></div>
                     <div className="space-y-2">
                       <div className="h-4 bg-gray-200 rounded w-3/4"></div>
