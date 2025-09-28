@@ -342,7 +342,7 @@ npm run test:coverage
 
 ## Deployment
 
-### Local Deployment (Docker)
+### Local Development (Docker Compose)
 ```bash
 # Build and start all services
 docker-compose up --build
@@ -350,6 +350,50 @@ docker-compose up --build
 # Access application
 open http://localhost:3000
 ```
+
+### Container Orchestration
+
+#### Option 1: Kubernetes Deployment
+```bash
+# Deploy to Kubernetes cluster
+cd deployments/k8s
+./deploy-k8s.sh --all
+
+# Check deployment status
+kubectl get pods -n solemate
+kubectl get services -n solemate
+
+# Scale for 50k users
+./scale-services.sh up
+```
+
+**Kubernetes Features:**
+- Horizontal Pod Autoscaling (HPA)
+- Rolling updates with zero downtime
+- Service mesh integration
+- Ingress with SSL termination
+- ConfigMaps and Secrets management
+
+#### Option 2: Docker Swarm Deployment
+```bash
+# Initialize Swarm and deploy stack
+./deploy-swarm.sh deploy
+
+# Check service status
+docker stack services solemate
+
+# Scale for different loads
+./swarm-scale-for-load.sh peak  # 50k users
+./swarm-scale-for-load.sh high   # 20k users
+./swarm-scale-for-load.sh normal # 5k users
+```
+
+**Swarm Features:**
+- Built-in load balancing
+- Overlay networking
+- Rolling updates
+- Service discovery
+- Easier setup than Kubernetes
 
 ### Production Deployment (AWS)
 
