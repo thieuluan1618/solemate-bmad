@@ -566,6 +566,30 @@ git push origin feature/service-name
 - API contracts are defined in `API_Documentation.yaml` - do not deviate
 - UI components should match the wireframes in `UI_Wireframes.html`
 
+## Troubleshooting
+
+**Common Issues & Solutions:**
+
+### Database Authentication Issues
+If services fail with "password authentication failed":
+- **Root Cause:** PostgreSQL SCRAM-SHA-256 incompatibility with Go drivers
+- **Solution:** PostgreSQL configured with MD5 authentication in `docker-compose.yml`
+- **Config:** `POSTGRES_HOST_AUTH_METHOD: md5` and custom `pg_hba.conf`
+- **Verification:** `curl http://localhost:8081/health` should return healthy status
+
+### API Gateway Routing Issues
+If getting "unsupported protocol scheme" errors:
+- **Root Cause:** Missing `http://` protocol in service URLs
+- **Solution:** All service URLs include protocol (e.g., `http://product-service:8081`)
+- **Config:** Updated in `docker-compose.yml` API Gateway environment variables
+
+### Phone Number Validation
+Phone field properly configured as optional with flexible formats:
+- **Supports:** `+1 (555) 123-4567`, `555-123-4567`, `555.123.4567`
+- **Transform:** Empty strings converted to `undefined` for true optional behavior
+
+**For detailed troubleshooting:** See `TROUBLESHOOTING.md`
+
 ---
 
 **Last Updated:** January 2025
