@@ -195,7 +195,7 @@ export default function OrdersPage() {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </Layout>
     )
@@ -250,7 +250,7 @@ export default function OrdersPage() {
               setStatusFilter(e.target.value as OrderStatus | 'all')
               setCurrentPage(1)
             }}
-            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
           >
             {statusOptions.map((option) => (
               <option key={option.value} value={option.value}>

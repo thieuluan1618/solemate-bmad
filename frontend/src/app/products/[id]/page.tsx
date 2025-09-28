@@ -47,7 +47,7 @@ function ProductImageGallery({ images, productName }: ProductImageGalleryProps) 
               key={image.id}
               onClick={() => setSelectedImageIndex(index)}
               className={`aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${
-                index === selectedImageIndex ? 'border-primary-500' : 'border-transparent hover:border-gray-300'
+                index === selectedImageIndex ? 'border-blue-500' : 'border-transparent hover:border-gray-300'
               }`}
             >
               <img
@@ -112,7 +112,7 @@ function AddToCartSection({ product }: AddToCartSectionProps) {
                 disabled={size.stockQuantity === 0}
                 className={`px-3 py-2 text-sm border rounded-md transition-colors ${
                   selectedSize?.id === size.id
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
                     : size.stockQuantity === 0
                     ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'border-gray-300 hover:border-gray-400'
@@ -137,7 +137,7 @@ function AddToCartSection({ product }: AddToCartSectionProps) {
                 disabled={color.stockQuantity === 0}
                 className={`w-8 h-8 rounded-full border-2 transition-all ${
                   selectedColor?.id === color.id
-                    ? 'border-primary-500 ring-2 ring-primary-200'
+                    ? 'border-blue-500 ring-2 ring-blue-200'
                     : color.stockQuantity === 0
                     ? 'border-gray-200 opacity-50 cursor-not-allowed'
                     : 'border-gray-300 hover:border-gray-400'
@@ -381,7 +381,7 @@ export default function ProductDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
@@ -540,7 +540,7 @@ export default function ProductDetailPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                       {relatedProduct.name}
                     </h3>
                     <p className="text-lg font-bold text-gray-900">

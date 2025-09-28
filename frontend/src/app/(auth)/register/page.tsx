@@ -103,7 +103,7 @@ export default function RegisterPage() {
             Already have an account?{' '}
             <Link
               href="/login"
-              className="font-medium text-primary-600 hover:text-primary-500 transition-colors"
+              className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
             >
               Sign in here
             </Link>
@@ -181,7 +181,7 @@ export default function RegisterPage() {
                 <input
                   id="accept-terms"
                   type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   {...registerForm('acceptTerms')}
                 />
               </div>
@@ -190,14 +190,14 @@ export default function RegisterPage() {
                   I agree to the{' '}
                   <Link
                     href="/terms"
-                    className="font-medium text-primary-600 hover:text-primary-500 transition-colors"
+                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Terms of Service
                   </Link>{' '}
                   and{' '}
                   <Link
                     href="/privacy"
-                    className="font-medium text-primary-600 hover:text-primary-500 transition-colors"
+                    className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Privacy Policy
                   </Link>

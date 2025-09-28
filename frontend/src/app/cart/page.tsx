@@ -51,7 +51,7 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <Link href={`/products/${item.productId}`}>
-              <h3 className="text-sm font-medium text-gray-900 hover:text-primary-600">
+              <h3 className="text-sm font-medium text-gray-900 hover:text-blue-600">
                 {item.product.name}
               </h3>
             </Link>
@@ -133,7 +133,7 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
                 // TODO: Implement add to wishlist
                 console.log('Move to wishlist:', item.id)
               }}
-              className="text-sm text-gray-500 hover:text-primary-600"
+              className="text-sm text-gray-500 hover:text-blue-600"
             >
               Save for later
             </button>
@@ -347,7 +347,7 @@ export default function CartPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }

@@ -68,16 +68,16 @@ export default function Header() {
 
           {/* Navigation Links - Desktop */}
           <nav className="hidden md:flex items-center space-x-6">
-            <Link href="/products" className="text-gray-700 hover:text-primary-600 transition-colors">
+            <Link href="/products" className="text-gray-700 hover:text-blue-600 transition-colors">
               Products
             </Link>
-            <Link href="/products?category=mens" className="text-gray-700 hover:text-primary-600 transition-colors">
+            <Link href="/products?category=mens" className="text-gray-700 hover:text-blue-600 transition-colors">
               Men
             </Link>
-            <Link href="/products?category=womens" className="text-gray-700 hover:text-primary-600 transition-colors">
+            <Link href="/products?category=womens" className="text-gray-700 hover:text-blue-600 transition-colors">
               Women
             </Link>
-            <Link href="/products?featured=true" className="text-gray-700 hover:text-primary-600 transition-colors">
+            <Link href="/products?featured=true" className="text-gray-700 hover:text-blue-600 transition-colors">
               Featured
             </Link>
           </nav>
@@ -85,12 +85,12 @@ export default function Header() {
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
             {/* Cart Icon */}
-            <Link href="/cart" className="relative p-2 text-gray-700 hover:text-primary-600 transition-colors">
+            <Link href="/cart" className="relative p-2 text-gray-700 hover:text-blue-600 transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
               </svg>
               {cart && cart.itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-primary-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {cart.itemCount > 9 ? '9+' : cart.itemCount}
                 </span>
               )}
@@ -101,10 +101,10 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors"
+                  className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-primary-700">
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-blue-700">
                       {user?.firstName?.[0]?.toUpperCase() || 'U'}
                     </span>
                   </div>

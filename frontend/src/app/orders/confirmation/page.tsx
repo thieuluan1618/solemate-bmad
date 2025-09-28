@@ -49,7 +49,7 @@ export default function OrderConfirmationPage() {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </Layout>
     )
@@ -60,7 +60,7 @@ export default function OrderConfirmationPage() {
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading your order confirmation...</p>
           </div>
         </div>
@@ -312,11 +312,11 @@ export default function OrderConfirmationPage() {
         <div className="text-center mt-8 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-600">
             Have questions about your order?{' '}
-            <Link href="/contact" className="text-primary-600 hover:text-primary-800 font-medium">
+            <Link href="/contact" className="text-blue-600 hover:text-blue-800 font-medium">
               Contact our support team
             </Link>{' '}
             or email us at{' '}
-            <a href="mailto:support@solemate.com" className="text-primary-600 hover:text-primary-800 font-medium">
+            <a href="mailto:support@solemate.com" className="text-blue-600 hover:text-blue-800 font-medium">
               support@solemate.com
             </a>
           </p>

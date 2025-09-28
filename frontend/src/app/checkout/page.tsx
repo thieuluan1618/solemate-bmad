@@ -127,7 +127,7 @@ function PaymentForm({ onNext, onBack }: PaymentFormProps) {
           </label>
           <div className="grid grid-cols-2 gap-4">
             <label className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-              paymentMethod === 'card' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+              paymentMethod === 'card' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
             }`}>
               <input
                 type="radio"
@@ -151,7 +151,7 @@ function PaymentForm({ onNext, onBack }: PaymentFormProps) {
             </label>
 
             <label className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
-              paymentMethod === 'paypal' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+              paymentMethod === 'paypal' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
             }`}>
               <input
                 type="radio"
@@ -432,7 +432,7 @@ export default function CheckoutPage() {
   if (cartLoading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     )
   }
@@ -467,10 +467,10 @@ export default function CheckoutPage() {
                       <div
                         className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${
                           currentStep === item.step
-                            ? 'bg-primary-600 text-white'
+                            ? 'bg-blue-600 text-white'
                             : currentStep === 'payment' && item.step === 'shipping' ||
                               currentStep === 'review' && (item.step === 'shipping' || item.step === 'payment')
-                            ? 'bg-primary-600 text-white'
+                            ? 'bg-blue-600 text-white'
                             : 'bg-gray-300 text-gray-500'
                         }`}
                       >
@@ -484,7 +484,7 @@ export default function CheckoutPage() {
                         )}
                       </div>
                       <span className={`ml-3 text-sm font-medium ${
-                        currentStep === item.step ? 'text-primary-600' : 'text-gray-500'
+                        currentStep === item.step ? 'text-blue-600' : 'text-gray-500'
                       }`}>
                         {item.name}
                       </span>

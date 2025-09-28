@@ -80,7 +80,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 {...register('preferences.emailNotifications')}
               />
               <span className="ml-2 text-sm text-gray-700">Email notifications for orders and updates</span>
@@ -89,7 +89,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 {...register('preferences.smsNotifications')}
               />
               <span className="ml-2 text-sm text-gray-700">SMS notifications for order updates</span>
@@ -98,7 +98,7 @@ function ProfileForm({ user, onUpdate, isLoading }: ProfileFormProps) {
             <label className="flex items-center">
               <input
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 {...register('preferences.marketingEmails')}
               />
               <span className="ml-2 text-sm text-gray-700">Marketing emails and promotions</span>
@@ -182,7 +182,7 @@ interface AddressCardProps {
 
 function AddressCard({ address, onEdit, onDelete, onSetDefault, isLoading }: AddressCardProps) {
   return (
-    <div className={`card p-4 ${address.isDefault ? 'ring-2 ring-primary-500' : ''}`}>
+    <div className={`card p-4 ${address.isDefault ? 'ring-2 ring-blue-500' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-2">
@@ -190,7 +190,7 @@ function AddressCard({ address, onEdit, onDelete, onSetDefault, isLoading }: Add
               {address.firstName} {address.lastName}
             </h3>
             {address.isDefault && (
-              <span className="px-2 py-1 text-xs bg-primary-100 text-primary-800 rounded-full">
+              <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
                 Default
               </span>
             )}
@@ -210,7 +210,7 @@ function AddressCard({ address, onEdit, onDelete, onSetDefault, isLoading }: Add
         <div className="flex items-center space-x-2 ml-4">
           <button
             onClick={() => onEdit(address)}
-            className="text-sm text-primary-600 hover:text-primary-800"
+            className="text-sm text-blue-600 hover:text-blue-800"
           >
             Edit
           </button>
@@ -267,7 +267,7 @@ function AddressForm({ address, onSave, onCancel, isLoading }: AddressFormProps)
               <input
                 type="radio"
                 value="shipping"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 {...register('type')}
               />
               <span className="ml-2 text-sm text-gray-700">Shipping</span>
@@ -276,7 +276,7 @@ function AddressForm({ address, onSave, onCancel, isLoading }: AddressFormProps)
               <input
                 type="radio"
                 value="billing"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                 {...register('type')}
               />
               <span className="ml-2 text-sm text-gray-700">Billing</span>
@@ -338,7 +338,7 @@ function AddressForm({ address, onSave, onCancel, isLoading }: AddressFormProps)
         <div className="flex items-center">
           <input
             type="checkbox"
-            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             {...register('isDefault')}
           />
           <span className="ml-2 text-sm text-gray-700">Set as default address</span>
@@ -402,7 +402,7 @@ function AddressesSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }
@@ -499,7 +499,7 @@ export default function ProfilePage() {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </Layout>
     )
@@ -528,7 +528,7 @@ export default function ProfilePage() {
                 onClick={() => setActiveTab(tab.id as TabType)}
                 className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
-                    ? 'border-primary-500 text-primary-600'
+                    ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >

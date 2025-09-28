@@ -44,7 +44,7 @@ function ProductCard({ product }: ProductCardProps) {
           </div>
         </div>
 
-        <h3 className="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+        <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
           {product.name}
         </h3>
 
@@ -253,7 +253,7 @@ export default function ProductsPage() {
                           value={category.id}
                           checked={filters.category === category.id}
                           onChange={(e) => handleFilterChange({ category: e.target.value })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
                         <span className="text-sm text-gray-700">{category.name}</span>
                       </label>
@@ -276,7 +276,7 @@ export default function ProductsPage() {
                           value={brand.id}
                           checked={filters.brand === brand.id}
                           onChange={(e) => handleFilterChange({ brand: e.target.value })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
                         <span className="text-sm text-gray-700">{brand.name}</span>
                       </label>
@@ -323,7 +323,7 @@ export default function ProductsPage() {
                           value={rating}
                           checked={filters.rating === rating}
                           onChange={(e) => handleFilterChange({ rating: parseFloat(e.target.value) })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                         />
                         <span className="flex items-center space-x-1 text-sm text-gray-700">
                           <span>{rating}</span>
@@ -342,7 +342,7 @@ export default function ProductsPage() {
                       type="checkbox"
                       checked={filters.inStock || false}
                       onChange={(e) => handleFilterChange({ inStock: e.target.checked })}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                     <span className="text-sm text-gray-700">In stock only</span>
                   </label>
@@ -368,7 +368,7 @@ export default function ProductsPage() {
               <select
                 value={filters.sortBy || 'newest'}
                 onChange={(e) => handleFilterChange({ sortBy: e.target.value as ProductSearchParams['sortBy'] })}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-primary-500 focus:border-primary-500"
+                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="newest">Newest</option>
                 <option value="price_asc">Price: Low to High</option>
