@@ -40,7 +40,11 @@ export const registerSchema = yup.object({
     .required('Please confirm your password'),
   phone: yup
     .string()
-    .matches(/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number')
+    .transform((value) => (value === '' ? undefined : value))
+    .matches(
+      /^[\+]?[0-9\s\-\(\)\.]{7,20}$/,
+      'Please enter a valid phone number (e.g., +1 (555) 123-4567)'
+    )
     .optional(),
   acceptTerms: yup
     .boolean()
@@ -101,7 +105,11 @@ export const profileSchema = yup.object({
     .required('Last name is required'),
   phone: yup
     .string()
-    .matches(/^[\+]?[1-9][\d]{0,15}$/, 'Please enter a valid phone number')
+    .transform((value) => (value === '' ? undefined : value))
+    .matches(
+      /^[\+]?[0-9\s\-\(\)\.]{7,20}$/,
+      'Please enter a valid phone number (e.g., +1 (555) 123-4567)'
+    )
     .optional(),
   preferences: yup.object({
     emailNotifications: yup.boolean().optional(),
@@ -211,9 +219,11 @@ export const filterSchema = yup.object({
   priceMax: yup
     .number()
     .min(0, 'Maximum price cannot be negative')
-    .when('priceMin', (priceMin, schema) =>
-      priceMin ? schema.min(priceMin, 'Maximum price must be greater than minimum price') : schema
-    )
+    .when('priceMin', {
+      is: (priceMin: number) => priceMin != null && priceMin >= 0,
+      then: (schema) => schema.min(yup.ref('priceMin'), 'Maximum price must be greater than minimum price'),
+      otherwise: (schema) => schema,
+    })
     .optional(),
   sizes: yup.array().of(yup.string()).optional(),
   colors: yup.array().of(yup.string()).optional(),
