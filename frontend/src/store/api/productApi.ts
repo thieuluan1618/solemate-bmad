@@ -20,6 +20,12 @@ export const productApi = apiSlice.injectEndpoints({
           colors: params.colors?.join(','),
         },
       }),
+      transformResponse: (response: { data: Product[]; pagination: any; success: boolean; message: string }) => ({
+        data: response.data,
+        meta: response.pagination,
+        success: response.success,
+        message: response.message,
+      }),
       providesTags: (result) =>
         result
           ? [
@@ -31,6 +37,7 @@ export const productApi = apiSlice.injectEndpoints({
 
     getProduct: builder.query<Product, string>({
       query: (id) => `/products/${id}`,
+      transformResponse: (response: { data: Product; success: boolean; message: string }) => response.data,
       providesTags: (result, error, id) => [{ type: 'Product', id }],
     }),
 

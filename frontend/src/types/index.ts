@@ -87,8 +87,8 @@ export interface Product {
   originalPrice?: number
   discountPercentage?: number
   sku: string
-  category: Category
-  brand: Brand
+  category?: Category
+  brand?: Brand
   sizes: ProductSize[]
   colors: ProductColor[]
   images: ProductImage[]

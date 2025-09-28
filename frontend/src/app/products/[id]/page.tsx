@@ -220,13 +220,13 @@ function ReviewSection({ productId, averageRating, reviewCount }: ReviewSectionP
       {/* Rating Summary */}
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
-          <span className="text-2xl font-bold">{averageRating.toFixed(1)}</span>
+          <span className="text-2xl font-bold">{(averageRating || 0).toFixed(1)}</span>
           <div className="flex items-center">
             {[...Array(5)].map((_, i) => (
               <svg
                 key={i}
                 className={`w-5 h-5 ${
-                  i < Math.floor(averageRating) ? 'text-yellow-400' : 'text-gray-300'
+                  i < Math.floor(averageRating || 0) ? 'text-yellow-400' : 'text-gray-300'
                 }`}
                 fill="currentColor"
                 viewBox="0 0 24 24"
@@ -419,12 +419,14 @@ export default function ProductDetailPage() {
                 </button>
               </li>
               <li className="text-gray-500">/</li>
-              <li>
-                <button onClick={() => router.push(`/products?category=${product.category.id}`)} className="text-gray-500 hover:text-gray-700">
-                  {product.category.name}
-                </button>
-              </li>
-              <li className="text-gray-500">/</li>
+              {product.category && (
+                <li>
+                  <button onClick={() => router.push(`/products?category=${product.category.id}`)} className="text-gray-500 hover:text-gray-700">
+                    {product.category.name}
+                  </button>
+                </li>
+              )}
+              {product.category && <li className="text-gray-500">/</li>}
               <li className="text-gray-900 font-medium">{product.name}</li>
             </ol>
           </nav>
@@ -447,7 +449,7 @@ export default function ProductDetailPage() {
                   <span className="text-sm text-gray-500">{product.brand?.name}</span>
                   <div className="flex items-center space-x-1">
                     <span className="text-yellow-400">★</span>
-                    <span className="text-sm text-gray-600">{product.rating}</span>
+                    <span className="text-sm text-gray-600">{(product.rating || 0).toFixed(1)}</span>
                     <span className="text-sm text-gray-500">({product.reviewCount} reviews)</span>
                   </div>
                 </div>
