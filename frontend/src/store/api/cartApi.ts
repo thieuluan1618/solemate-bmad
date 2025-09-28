@@ -9,6 +9,7 @@ export const cartApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getCart: builder.query<Cart, void>({
       query: () => '/cart',
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       providesTags: ['Cart'],
     }),
 
@@ -18,6 +19,7 @@ export const cartApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: item,
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
 
@@ -27,6 +29,7 @@ export const cartApi = apiSlice.injectEndpoints({
         method: 'PATCH',
         body: { quantity },
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
 
@@ -35,6 +38,7 @@ export const cartApi = apiSlice.injectEndpoints({
         url: `/cart/items/${itemId}`,
         method: 'DELETE',
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
 
@@ -52,6 +56,7 @@ export const cartApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
 
@@ -61,6 +66,7 @@ export const cartApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: data,
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
 
@@ -69,6 +75,7 @@ export const cartApi = apiSlice.injectEndpoints({
         url: '/cart/promo',
         method: 'DELETE',
       }),
+      transformResponse: (response: ApiResponse<Cart>) => response.data,
       invalidatesTags: ['Cart'],
     }),
   }),

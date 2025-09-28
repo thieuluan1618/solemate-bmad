@@ -188,21 +188,29 @@ export interface ProductSearchParams {
 // Cart types
 export interface CartItem {
   id: string
-  productId: string
-  product: Product
+  product_id: string
+  variant_id?: string
+  sku: string
+  name: string
+  size?: string
+  color?: string
+  price: number
   quantity: number
-  size?: ProductSize
-  color?: ProductColor
-  addedAt: string
+  discount: number
+  total_price: number
+  image_url?: string
+  added_at: string
+  updated_at: string
 }
 
 export interface Cart {
-  id: string
-  userId?: string
+  user_id: string
   items: CartItem[]
-  total: number
-  itemCount: number
-  updatedAt: string
+  total_items: number
+  total_price: number
+  created_at: string
+  updated_at: string
+  expires_at: string
 }
 
 export interface AddToCartRequest {

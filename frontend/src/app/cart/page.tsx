@@ -17,7 +17,7 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
   const [quantity, setQuantity] = useState(item.quantity)
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1 && newQuantity <= (item.size?.stockQuantity || item.product.stockQuantity)) {
+    if (newQuantity >= 1 && newQuantity <= 99) {
       setQuantity(newQuantity)
       onUpdateQuantity(item.id, newQuantity)
     }
@@ -27,12 +27,12 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
     <div className="flex items-start space-x-4 py-6 border-b border-gray-200">
       {/* Product Image */}
       <div className="flex-shrink-0">
-        <Link href={`/products/${item.productId}`}>
+        <Link href={`/products/${item.product_id}`}>
           <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
-            {item.product.images?.[0] ? (
+            {item.image_url ? (
               <img
-                src={item.product.images[0].url}
-                alt={item.product.images[0].altText || item.product.name}
+                src={item.image_url}
+                alt={item.name}
                 className="w-full h-full object-cover hover:scale-105 transition-transform"
               />
             ) : (
@@ -50,37 +50,31 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <Link href={`/products/${item.productId}`}>
+            <Link href={`/products/${item.product_id}`}>
               <h3 className="text-sm font-medium text-gray-900 hover:text-blue-600">
-                {item.product.name}
+                {item.name}
               </h3>
             </Link>
-            <p className="text-sm text-gray-500">{item.product.brand?.name}</p>
+            <p className="text-sm text-gray-500">SKU: {item.sku}</p>
 
             {/* Variant Details */}
             <div className="flex items-center space-x-4 text-sm text-gray-600">
               {item.size && (
-                <span>Size: {item.size.name}</span>
+                <span>Size: {item.size}</span>
               )}
               {item.color && (
-                <div className="flex items-center space-x-1">
-                  <span>Color: {item.color.name}</span>
-                  <div
-                    className="w-4 h-4 rounded-full border border-gray-300"
-                    style={{ backgroundColor: item.color.value }}
-                  />
-                </div>
+                <span>Color: {item.color}</span>
               )}
             </div>
 
             {/* Price */}
             <div className="flex items-center space-x-2">
               <span className="text-lg font-semibold text-gray-900">
-                ${item.product.price.toFixed(2)}
+                ${item.price.toFixed(2)}
               </span>
-              {item.product.originalPrice && item.product.originalPrice > item.product.price && (
-                <span className="text-sm text-gray-500 line-through">
-                  ${item.product.originalPrice.toFixed(2)}
+              {item.discount > 0 && (
+                <span className="text-sm text-green-600">
+                  -${item.discount.toFixed(2)}
                 </span>
               )}
             </div>
@@ -89,7 +83,7 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
           {/* Item Total */}
           <div className="text-right">
             <p className="text-lg font-semibold text-gray-900">
-              ${(item.product.price * item.quantity).toFixed(2)}
+              ${item.total_price.toFixed(2)}
             </p>
           </div>
         </div>
@@ -112,14 +106,14 @@ function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
                 id={`quantity-${item.id}`}
                 type="number"
                 min="1"
-                max={item.size?.stockQuantity || item.product.stockQuantity}
+                max="99"
                 value={quantity}
                 onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                 className="w-16 text-center"
               />
               <button
                 onClick={() => handleQuantityChange(quantity + 1)}
-                disabled={quantity >= (item.size?.stockQuantity || item.product.stockQuantity)}
+                disabled={quantity >= 99}
                 className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 +
@@ -161,7 +155,7 @@ function OrderSummary({ cart, onApplyPromoCode, onRemovePromoCode, promoCodeLoad
   const [promoCode, setPromoCode] = useState('')
   const router = useRouter()
 
-  const subtotal = cart.total || 0
+  const subtotal = cart.total_price || 0
   const shipping = subtotal > 50 ? 0 : 9.99 // Free shipping over $50
   const tax = subtotal * 0.08 // 8% tax
   const discount = cart.discountAmount || 0
@@ -180,7 +174,7 @@ function OrderSummary({ cart, onApplyPromoCode, onRemovePromoCode, promoCodeLoad
 
       <div className="space-y-3 text-sm">
         <div className="flex justify-between">
-          <span className="text-gray-600">Subtotal ({cart.itemCount} items)</span>
+          <span className="text-gray-600">Subtotal ({cart.total_items} items)</span>
           <span className="font-medium">${subtotal.toFixed(2)}</span>
         </div>
 
@@ -268,7 +262,7 @@ function OrderSummary({ cart, onApplyPromoCode, onRemovePromoCode, promoCodeLoad
           onClick={() => router.push('/checkout')}
           variant="primary"
           className="w-full"
-          disabled={cart.itemCount === 0}
+          disabled={cart.total_items === 0}
         >
           Proceed to Checkout
         </Button>
@@ -352,6 +346,18 @@ export default function CartPage() {
     )
   }
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading your cart...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -367,7 +373,7 @@ export default function CartPage() {
   }
 
   // Empty cart state
-  if (!cart || cart.itemCount === 0) {
+  if (!cart || !cart.items || cart.items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -406,9 +412,9 @@ export default function CartPage() {
             <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
-                {cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'}
+                {cart.total_items} {cart.total_items === 1 ? 'item' : 'items'}
               </span>
-              {cart.itemCount > 0 && (
+              {cart.total_items > 0 && (
                 <button
                   onClick={handleClearCart}
                   className="text-sm text-red-600 hover:text-red-800"
@@ -427,14 +433,14 @@ export default function CartPage() {
           <div className="lg:col-span-2">
             <div className="card p-6">
               <div className="space-y-0">
-                {cart.items.map((item) => (
+                {cart?.items?.map((item) => (
                   <CartItem
                     key={item.id}
                     item={item}
                     onUpdateQuantity={handleUpdateQuantity}
                     onRemove={handleRemoveItem}
                   />
-                ))}
+                )) || []}
               </div>
             </div>
           </div>
