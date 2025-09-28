@@ -1,0 +1,166 @@
+# docker-compose.local.yml - Lightweight local development setup
+
+services:
+  # Core Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: solemate
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: solemate_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solemate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend (Development mode with hot reload)
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    command: npm run dev
+    depends_on:
+      - api-gateway
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    environment:
+      - PORT=8000
+      - USER_SERVICE_URL=http://user-service:8080
+      - PRODUCT_SERVICE_URL=http://product-service:8081
+      - CART_SERVICE_URL=http://cart-service:8083
+      - ORDER_SERVICE_URL=http://order-service:8084
+    ports:
+      - "8000:8000"
+    depends_on:
+      - user-service
+      - product-service
+
+  # Minimal Services for Development
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    environment:
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=solemate
+      - DB_PASSWORD=localdev
+      - DB_NAME=solemate_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=local-dev-secret
+      - JWT_REFRESH_SECRET=local-dev-refresh
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  product-service:
+    build:
+      context: .
+      dockerfile: services/product-service/Dockerfile
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=solemate
+      - DB_PASSWORD=localdev
+      - DB_NAME=solemate_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: services/cart-service/Dockerfile
+    environment:
+      - PORT=8083
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=local-dev-secret
+    ports:
+      - "8083:8083"
+    depends_on:
+      redis:
+        condition: service_healthy
+    profiles: ["full"]  # Only runs with --profile full
+
+  order-service:
+    build:
+      context: .
+      dockerfile: services/order-service/Dockerfile
+    environment:
+      - PORT=8084
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=solemate
+      - DB_PASSWORD=localdev
+      - DB_NAME=solemate_db
+      - CART_SERVICE_URL=http://cart-service:8083
+      - PRODUCT_SERVICE_URL=http://product-service:8081
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["full"]  # Only runs with --profile full
+
+  # Development Tools
+  adminer:
+    image: adminer
+    ports:
+      - "8090:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    profiles: ["tools"]
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8091:8081"
+    profiles: ["tools"]
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: solemate-dev

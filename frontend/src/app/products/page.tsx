@@ -356,11 +356,11 @@ export default function ProductsPage() {
             {/* Toolbar */}
             <div className="flex items-center justify-between mb-6">
               <div className="text-sm text-gray-600">
-                {productsData && (
+                {productsData && productsData.pagination && (
                   <>
-                    Showing {((productsData.meta.page - 1) * productsData.meta.limit) + 1}-
-                    {Math.min(productsData.meta.page * productsData.meta.limit, productsData.meta.total)} of{' '}
-                    {productsData.meta.total} results
+                    Showing {((productsData.pagination.page - 1) * productsData.pagination.limit) + 1}-
+                    {Math.min(productsData.pagination.page * productsData.pagination.limit, productsData.pagination.total)} of{' '}
+                    {productsData.pagination.total} results
                   </>
                 )}
               </div>
@@ -413,23 +413,23 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Pagination */}
-                {productsData && productsData.meta.totalPages > 1 && (
+                {productsData && productsData.pagination && productsData.pagination.total_pages > 1 && (
                   <div className="mt-8 flex justify-center">
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
-                        disabled={productsData.meta.page === 1}
-                        onClick={() => handleFilterChange({ page: productsData.meta.page - 1 })}
+                        disabled={productsData.pagination.page === 1}
+                        onClick={() => handleFilterChange({ page: productsData.pagination.page - 1 })}
                       >
                         Previous
                       </Button>
 
-                      {[...Array(Math.min(5, productsData.meta.totalPages))].map((_, i) => {
+                      {[...Array(Math.min(5, productsData.pagination.total_pages))].map((_, i) => {
                         const page = i + 1
                         return (
                           <Button
                             key={page}
-                            variant={page === productsData.meta.page ? 'primary' : 'outline'}
+                            variant={page === productsData.pagination.page ? 'primary' : 'outline'}
                             onClick={() => handleFilterChange({ page })}
                           >
                             {page}
@@ -439,8 +439,8 @@ export default function ProductsPage() {
 
                       <Button
                         variant="outline"
-                        disabled={productsData.meta.page === productsData.meta.totalPages}
-                        onClick={() => handleFilterChange({ page: productsData.meta.page + 1 })}
+                        disabled={productsData.pagination.page === productsData.pagination.total_pages}
+                        onClick={() => handleFilterChange({ page: productsData.pagination.page + 1 })}
                       >
                         Next
                       </Button>
