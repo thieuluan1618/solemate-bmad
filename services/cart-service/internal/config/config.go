@@ -56,8 +56,8 @@ func Load() *Config {
 			WriteTimeout: getEnvAsDuration("REDIS_WRITE_TIMEOUT", 3*time.Second),
 		},
 		JWT: JWTConfig{
-			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "your-access-secret-key"),
-			RefreshSecret: getEnv("JWT_REFRESH_SECRET", "your-refresh-secret-key"),
+			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "default-access-secret"),
+			RefreshSecret: getEnv("JWT_REFRESH_SECRET", "default-refresh-secret"),
 		},
 	}
 }

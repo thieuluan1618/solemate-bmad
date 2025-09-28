@@ -30,14 +30,21 @@ export default function LoginPage() {
       setServerError('')
       const result = await login(data).unwrap()
 
+      // Transform the API response to match our auth slice structure
       dispatch(setCredentials({
-        user: result.user,
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        user: {
+          id: result.data.user.id,
+          email: result.data.user.email,
+          firstName: result.data.user.first_name,
+          lastName: result.data.user.last_name,
+          role: result.data.user.role,
+        },
+        accessToken: result.data.access_token,
+        refreshToken: result.data.refresh_token,
       }))
 
       // Redirect to intended page or home
-      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/'
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/products'
       router.push(redirectTo)
     } catch (error: any) {
       setServerError(error?.data?.message || 'Login failed. Please try again.')

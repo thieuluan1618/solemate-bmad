@@ -21,8 +21,8 @@ func NewCartHandler(cartService service.CartService) *CartHandler {
 }
 
 type AddItemRequest struct {
-	ProductID uuid.UUID  `json:"product_id" binding:"required"`
-	VariantID *uuid.UUID `json:"variant_id,omitempty"`
+	ProductID uuid.UUID  `json:"productId" binding:"required"`
+	VariantID *uuid.UUID `json:"variantId,omitempty"`
 	Quantity  int        `json:"quantity" binding:"required,min=1"`
 }
 

@@ -39,9 +39,9 @@ func Load() *Config {
 		Services: ServicesConfig{
 			UserServiceURL:    getEnv("USER_SERVICE_URL", "http://localhost:8080"),
 			ProductServiceURL: getEnv("PRODUCT_SERVICE_URL", "http://localhost:8081"),
-			CartServiceURL:    getEnv("CART_SERVICE_URL", "http://localhost:8082"),
-			OrderServiceURL:   getEnv("ORDER_SERVICE_URL", "http://localhost:8083"),
-			PaymentServiceURL: getEnv("PAYMENT_SERVICE_URL", "http://localhost:8084"),
+			CartServiceURL:    getEnv("CART_SERVICE_URL", "http://localhost:8083"),
+			OrderServiceURL:   getEnv("ORDER_SERVICE_URL", "http://localhost:8084"),
+			PaymentServiceURL: getEnv("PAYMENT_SERVICE_URL", "http://localhost:8085"),
 		},
 		JWT: JWTConfig{
 			AccessSecret:  getEnv("JWT_ACCESS_SECRET", "default-access-secret"),

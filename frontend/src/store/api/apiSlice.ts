@@ -1,8 +1,9 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+import Cookies from 'js-cookie'
 import type { RootState } from '../index'
 
 const baseQuery = fetchBaseQuery({
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1',
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token
     if (token) {
@@ -17,24 +18,52 @@ const baseQueryWithReauth = async (args: any, api: any, extraOptions: any) => {
   let result = await baseQuery(args, api, extraOptions)
 
   if (result.error && result.error.status === 401) {
-    // Try to refresh the token
-    const refreshResult = await baseQuery(
-      {
-        url: '/auth/refresh',
-        method: 'POST',
-      },
-      api,
-      extraOptions
-    )
+    // Get refresh token from cookies
+    const refreshToken = Cookies.get('refreshToken')
 
-    if (refreshResult.data) {
-      // Store the new token
-      api.dispatch(setCredentials(refreshResult.data))
-      // Retry the original query
-      result = await baseQuery(args, api, extraOptions)
+    if (refreshToken) {
+      // Try to refresh the token
+      const refreshResult = await baseQuery(
+        {
+          url: '/auth/refresh',
+          method: 'POST',
+          body: { refresh_token: refreshToken },
+        },
+        api,
+        extraOptions
+      )
+
+      if (refreshResult.data) {
+        // Transform and store the new tokens
+        const responseData = refreshResult.data as any
+        api.dispatch(setCredentials({
+          user: (api.getState() as RootState).auth.user!, // Keep existing user data
+          accessToken: responseData.data.access_token,
+          refreshToken: responseData.data.refresh_token,
+        }))
+        // Retry the original query
+        result = await baseQuery(args, api, extraOptions)
+      } else {
+        // Refresh failed, logout user and redirect to login
+        api.dispatch(logout())
+
+        // Redirect to login page with current page as redirect parameter
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname + window.location.search
+          const redirectUrl = currentPath === '/login' ? '/login' : `/login?redirect=${encodeURIComponent(currentPath)}`
+          window.location.href = redirectUrl
+        }
+      }
     } else {
-      // Refresh failed, logout user
+      // No refresh token, logout user and redirect to login
       api.dispatch(logout())
+
+      // Redirect to login page
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname + window.location.search
+        const redirectUrl = currentPath === '/login' ? '/login' : `/login?redirect=${encodeURIComponent(currentPath)}`
+        window.location.href = redirectUrl
+      }
     }
   }
 

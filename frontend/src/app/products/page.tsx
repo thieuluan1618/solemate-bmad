@@ -362,7 +362,7 @@ export default function ProductsPage() {
           <div className="lg:col-span-3">
             {/* Toolbar */}
             <div className="flex items-center justify-between mb-6">
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-900 font-medium">
                 {productsData && productsData.pagination && (
                   <>
                     Showing {((productsData.pagination.page - 1) * productsData.pagination.limit) + 1}-
@@ -375,7 +375,7 @@ export default function ProductsPage() {
               <select
                 value={filters.sortBy || 'newest'}
                 onChange={(e) => handleFilterChange({ sortBy: e.target.value as ProductSearchParams['sortBy'] })}
-                className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-300 rounded-md px-3 py-1 text-sm text-gray-900 bg-white focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="newest">Newest</option>
                 <option value="price_asc">Price: Low to High</option>

@@ -28,10 +28,19 @@ interface AuthState {
   loading: boolean
 }
 
+const getInitialToken = () => {
+  if (typeof window !== 'undefined') {
+    return Cookies.get('accessToken') || null
+  }
+  return null
+}
+
+const initialToken = getInitialToken()
+
 const initialState: AuthState = {
   user: null,
-  token: typeof window !== 'undefined' ? Cookies.get('accessToken') || null : null,
-  isAuthenticated: false,
+  token: initialToken,
+  isAuthenticated: !!initialToken,
   loading: false,
 }
 
