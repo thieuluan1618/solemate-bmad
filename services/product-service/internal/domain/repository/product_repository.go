@@ -16,6 +16,7 @@ type ProductRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, filters ProductFilters) ([]*entity.Product, int64, error)
 	SearchByText(ctx context.Context, query string, filters ProductFilters) ([]*entity.Product, int64, error)
+	GetRelatedProducts(ctx context.Context, productID uuid.UUID, limit int) ([]*entity.Product, error)
 }
 
 type CategoryRepository interface {

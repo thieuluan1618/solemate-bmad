@@ -29,6 +29,7 @@ func SetupRoutes(productHandler *ProductHandler, categoryHandler *CategoryHandle
 			products.GET("/search", productHandler.SearchProducts)
 			products.GET("/:id", productHandler.GetProduct)
 			products.GET("/slug/:slug", productHandler.GetProductBySlug)
+			products.GET("/:id/related", productHandler.GetRelatedProducts)
 		}
 
 		// Public category routes

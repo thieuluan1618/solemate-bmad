@@ -39,7 +39,7 @@ func (r *productRepositoryImpl) GetByID(ctx context.Context, id uuid.UUID) (*ent
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Order("sort_order ASC, created_at ASC")
 		}).
-		Where("id = ?", id).
+		Where("id = ? ", id).
 		First(&product)
 
 	if result.Error != nil {
@@ -48,6 +48,7 @@ func (r *productRepositoryImpl) GetByID(ctx context.Context, id uuid.UUID) (*ent
 		}
 		return nil, result.Error
 	}
+	r.calculateTotalStock(&product)
 	return &product, nil
 }
 
@@ -60,7 +61,7 @@ func (r *productRepositoryImpl) GetBySKU(ctx context.Context, sku string) (*enti
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Order("sort_order ASC, created_at ASC")
 		}).
-		Where("sku = ?", sku).
+		Where("sku = ? ", sku).
 		First(&product)
 
 	if result.Error != nil {
@@ -69,6 +70,7 @@ func (r *productRepositoryImpl) GetBySKU(ctx context.Context, sku string) (*enti
 		}
 		return nil, result.Error
 	}
+	r.calculateTotalStock(&product)
 	return &product, nil
 }
 
@@ -81,7 +83,7 @@ func (r *productRepositoryImpl) GetBySlug(ctx context.Context, slug string) (*en
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Order("sort_order ASC, created_at ASC")
 		}).
-		Where("slug = ?", slug).
+		Where("slug = ? ", slug).
 		First(&product)
 
 	if result.Error != nil {
@@ -90,6 +92,7 @@ func (r *productRepositoryImpl) GetBySlug(ctx context.Context, slug string) (*en
 		}
 		return nil, result.Error
 	}
+	r.calculateTotalStock(&product)
 	return &product, nil
 }
 
@@ -136,11 +139,18 @@ func (r *productRepositoryImpl) List(ctx context.Context, filters repository.Pro
 	query = query.
 		Preload("Category").
 		Preload("Brand").
+		Preload("Variants"). // Add this line
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("is_primary = ?", true)
 		})
 
 	result := query.Find(&products)
+
+	// Calculate total stock for each product
+	for _, product := range products {
+		r.calculateTotalStock(product)
+	}
+
 	return products, total, result.Error
 }
 
@@ -182,12 +192,61 @@ func (r *productRepositoryImpl) SearchByText(ctx context.Context, searchQuery st
 	query = query.
 		Preload("Category").
 		Preload("Brand").
+		Preload("Variants"). // Add this line
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("is_primary = ?", true)
 		})
 
 	result := query.Find(&products)
+
+	// Calculate total stock for each product
+	for _, product := range products {
+		r.calculateTotalStock(product)
+	}
+
 	return products, total, result.Error
+}
+
+func (r *productRepositoryImpl) GetRelatedProducts(ctx context.Context, productID uuid.UUID, limit int) ([]*entity.Product, error) {
+	var currentProduct entity.Product
+	if err := r.db.WithContext(ctx).Where("id = ?", productID).First(&currentProduct).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("product not found")
+		}
+		return nil, err
+	}
+
+	var relatedProducts []*entity.Product
+	query := r.db.WithContext(ctx).
+		Where("id != ?", productID). // Exclude the current product
+		Limit(limit).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Variants"). // Add this line
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("is_primary = ?", true)
+		})
+
+	// Try to find products in the same category first
+	if currentProduct.CategoryID != nil {
+		query = query.Or("category_id = ?", *currentProduct.CategoryID)
+	}
+
+	// Then try to find products by the same brand
+	if currentProduct.BrandID != nil {
+		query = query.Or("brand_id = ?", *currentProduct.BrandID)
+	}
+
+	if err := query.Find(&relatedProducts).Error; err != nil {
+		return nil, err
+	}
+
+	// Calculate total stock for each related product
+	for _, product := range relatedProducts {
+		r.calculateTotalStock(product)
+	}
+
+	return relatedProducts, nil
 }
 
 func (r *productRepositoryImpl) applyFilters(query *gorm.DB, filters repository.ProductFilters) *gorm.DB {
@@ -243,4 +302,12 @@ func (r *productRepositoryImpl) applySorting(query *gorm.DB, filters repository.
 	}
 
 	return query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
+}
+
+func (r *productRepositoryImpl) calculateTotalStock(product *entity.Product) {
+	totalStock := 0
+	for _, variant := range product.Variants {
+		totalStock += variant.Stock
+	}
+	product.StockQuantity = totalStock
 }

@@ -104,3 +104,41 @@ curl "http://localhost:8000/api/v1/products?page=1&limit=3"
 ```
 
 All services should return `{"service":"<service-name>","status":"healthy"}`.
+
+## Frontend CORS Issues
+
+### Problem: Frontend getting 403 errors on API calls
+
+**Symptoms:**
+- Browser console shows: `Access to fetch at 'http://localhost:8000/api/v1/products' from origin 'http://localhost:3002' has been blocked by CORS policy`
+- API Gateway logs show 403 responses for OPTIONS requests
+- Frontend unable to load data from backend
+
+**Root Cause:**
+Frontend running on port 3002 but CORS configuration only allows ports 3000-3001.
+
+**Solution:**
+Update CORS configuration in API Gateway to include the frontend port:
+
+```go
+// api-gateway/internal/middleware/cors.go
+AllowOrigins: []string{
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002", // Add current frontend port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002", // Add current frontend port
+    // ... other origins
+},
+```
+
+**Verification:**
+```bash
+# Test CORS preflight request
+curl -X OPTIONS http://localhost:8000/api/v1/products \
+  -H "Origin: http://localhost:3002" \
+  -H "Access-Control-Request-Method: GET" -i
+
+# Should return 204 No Content with proper CORS headers
+```

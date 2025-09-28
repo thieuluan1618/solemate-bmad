@@ -64,11 +64,18 @@ function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        <div className="text-sm text-gray-600">{product.category?.name}</div>
-
-        {product.stockQuantity === 0 && (
-          <span className="text-sm text-red-600 font-medium">Out of Stock</span>
-        )}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-600">{product.category?.name}</div>
+          <div className="text-sm">
+            {product.stockQuantity === 0 ? (
+              <span className="text-red-600 font-medium">Out of Stock</span>
+            ) : product.stockQuantity <= 5 ? (
+              <span className="text-orange-600 font-medium">{product.stockQuantity} left</span>
+            ) : (
+              <span className="text-green-600 font-medium">In Stock ({product.stockQuantity})</span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -336,6 +336,13 @@ func (s *ProductService) ListProducts(ctx context.Context, page, limit int) ([]*
 	return s.productRepo.List(ctx, filters)
 }
 
+func (s *ProductService) GetRelatedProducts(ctx context.Context, productID uuid.UUID, limit int) ([]*entity.Product, error) {
+	if limit <= 0 {
+		limit = 4 // Default limit
+	}
+	return s.productRepo.GetRelatedProducts(ctx, productID, limit)
+}
+
 // Helper function
 func boolPtr(b bool) *bool {
 	return &b

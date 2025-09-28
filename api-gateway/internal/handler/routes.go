@@ -39,10 +39,23 @@ func SetupRoutes(proxyHandler *ProxyHandler, jwtManager *auth.JWTManager) *gin.E
 		products := v1.Group("/products")
 		{
 			products.GET("", proxyHandler.ProxyToProductService)
-			products.GET("/:id", proxyHandler.ProxyToProductService)
 			products.GET("/search", proxyHandler.ProxyToProductService)
-			products.GET("/categories", proxyHandler.ProxyToProductService)
-			products.GET("/brands", proxyHandler.ProxyToProductService)
+			products.GET("/:id", proxyHandler.ProxyToProductService)
+			products.GET("/:id/related", proxyHandler.ProxyToProductService)
+		}
+
+		// Public categories routes
+		categories := v1.Group("/categories")
+		{
+			categories.GET("", proxyHandler.ProxyToProductService)
+			categories.GET("/:id", proxyHandler.ProxyToProductService)
+		}
+
+		// Public brands routes
+		brands := v1.Group("/brands")
+		{
+			brands.GET("", proxyHandler.ProxyToProductService)
+			brands.GET("/:id", proxyHandler.ProxyToProductService)
 		}
 
 		// Protected routes (authentication required)

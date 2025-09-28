@@ -183,6 +183,25 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 	utils.PaginatedSuccessResponse(c, "Product search completed", result, pagination)
 }
 
+func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
+	productIDParam := c.Param("id")
+	productID, err := uuid.Parse(productIDParam)
+	if err != nil {
+		utils.BadRequestResponse(c, "Invalid product ID", err.Error())
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "4"))
+
+	products, err := h.productService.GetRelatedProducts(c.Request.Context(), productID, limit)
+	if err != nil {
+		utils.InternalServerErrorResponse(c, "Failed to retrieve related products", err.Error())
+		return
+	}
+
+	utils.SuccessResponse(c, "Related products retrieved successfully", products)
+}
+
 // Helper function
 func getStringPtr(s string) *string {
 	if s == "" {

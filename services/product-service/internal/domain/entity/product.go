@@ -23,6 +23,7 @@ type Product struct {
 	Tags            pq.StringArray `json:"tags" gorm:"type:text[]"`
 	MetaTitle       string         `json:"meta_title"`
 	MetaDescription string         `json:"meta_description" gorm:"type:text"`
+	StockQuantity   int            `json:"stock_quantity" gorm:"-"` // Add this line, gorm:"-" to ignore this field in DB operations
 	CreatedAt       time.Time      `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 

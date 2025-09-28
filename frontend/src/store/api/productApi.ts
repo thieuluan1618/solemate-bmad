@@ -8,6 +8,18 @@ import type {
   SearchSuggestion,
 } from '@/types'
 
+// Utility function to transform snake_case to camelCase for API responses
+const transformProduct = (product: any): Product => ({
+  ...product,
+  stockQuantity: product.stock_quantity,
+  originalPrice: product.compare_price,
+  shortDescription: product.description,
+  seoTitle: product.meta_title,
+  seoDescription: product.meta_description,
+  createdAt: product.created_at,
+  updatedAt: product.updated_at,
+})
+
 export const productApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getProducts: builder.query<PaginatedResponse<Product>, ProductSearchParams>({
@@ -21,7 +33,7 @@ export const productApi = apiSlice.injectEndpoints({
         },
       }),
       transformResponse: (response: { data: Product[]; pagination: any; success: boolean; message: string }) => ({
-        data: response.data,
+        data: response.data.map(transformProduct),
         meta: response.pagination,
         success: response.success,
         message: response.message,
@@ -37,7 +49,7 @@ export const productApi = apiSlice.injectEndpoints({
 
     getProduct: builder.query<Product, string>({
       query: (id) => `/products/${id}`,
-      transformResponse: (response: { data: Product; success: boolean; message: string }) => response.data,
+      transformResponse: (response: { data: Product; success: boolean; message: string }) => transformProduct(response.data),
       providesTags: (result, error, id) => [{ type: 'Product', id }],
     }),
 
@@ -54,6 +66,8 @@ export const productApi = apiSlice.injectEndpoints({
         url: '/categories',
         params: parentId ? { parentId } : {},
       }),
+      transformResponse: (response: { data: Category[]; success: boolean; message: string }) =>
+        response.data,
       providesTags: (result) =>
         result
           ? [
@@ -70,6 +84,8 @@ export const productApi = apiSlice.injectEndpoints({
 
     getBrands: builder.query<Brand[], void>({
       query: () => '/brands',
+      transformResponse: (response: { data: Brand[]; success: boolean; message: string }) =>
+        response.data,
       providesTags: (result) =>
         result
           ? [
@@ -89,6 +105,8 @@ export const productApi = apiSlice.injectEndpoints({
         url: '/products/featured',
         params: { limit },
       }),
+      transformResponse: (response: { data: Product[]; success: boolean; message: string }) =>
+        response.data.map(transformProduct),
       providesTags: ['Product'],
     }),
 
@@ -97,6 +115,8 @@ export const productApi = apiSlice.injectEndpoints({
         url: `/products/${productId}/related`,
         params: { limit },
       }),
+      transformResponse: (response: { data: Product[]; success: boolean; message: string }) =>
+        response.data.map(transformProduct),
       providesTags: ['Product'],
     }),
 
