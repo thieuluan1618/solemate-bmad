@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, Input } from '@/components/ui'
+import Header from '@/components/layout/Header'
 import { useGetProductsQuery, useGetCategoriesQuery, useGetBrandsQuery } from '@/store/api/productApi'
 import { ProductSearchParams, ProductFilters } from '@/types'
 

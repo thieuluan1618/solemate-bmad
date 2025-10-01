@@ -89,9 +89,9 @@ export default function Header() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
               </svg>
-              {cart && cart.itemCount > 0 && (
+              {cart && cart.total_items > 0 && (
                 <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {cart.itemCount > 9 ? '9+' : cart.itemCount}
+                  {cart.total_items > 9 ? '9+' : cart.total_items}
                 </span>
               )}
             </Link>
