@@ -85,8 +85,8 @@ services:
       - DB_SSLMODE=disable
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_ACCESS_SECRET=your-access-secret-key-here
-      - JWT_REFRESH_SECRET=your-refresh-secret-key-here
+      - JWT_ACCESS_SECRET=default-access-secret
+      - JWT_REFRESH_SECRET=default-refresh-secret
     ports:
       - "8080:8080"
     depends_on:
@@ -128,8 +128,8 @@ services:
       - PORT=8083
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_ACCESS_SECRET=your-access-secret-key-here
-      - JWT_REFRESH_SECRET=your-refresh-secret-key-here
+      - JWT_ACCESS_SECRET=default-access-secret
+      - JWT_REFRESH_SECRET=default-refresh-secret
     ports:
       - "8083:8083"
     depends_on:
@@ -150,8 +150,8 @@ services:
       - DB_PASSWORD=password
       - DB_NAME=solemate_db
       - DB_SSLMODE=disable
-      - JWT_ACCESS_SECRET=your-access-secret-key-here
-      - JWT_REFRESH_SECRET=your-refresh-secret-key-here
+      - JWT_ACCESS_SECRET=default-access-secret
+      - JWT_REFRESH_SECRET=default-refresh-secret
       - CART_SERVICE_URL=http://cart-service:8083
       - PRODUCT_SERVICE_URL=http://product-service:8081
     ports:
@@ -173,6 +173,8 @@ services:
       - CART_SERVICE_URL=http://cart-service:8083
       - ORDER_SERVICE_URL=http://order-service:8084
       - PAYMENT_SERVICE_URL=http://payment-service:8084
+      - JWT_ACCESS_SECRET=default-access-secret
+      - JWT_REFRESH_SECRET=default-refresh-secret
     ports:
       - "8000:8000"
     depends_on:

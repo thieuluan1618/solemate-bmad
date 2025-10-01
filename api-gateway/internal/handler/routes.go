@@ -42,6 +42,8 @@ func SetupRoutes(proxyHandler *ProxyHandler, jwtManager *auth.JWTManager) *gin.E
 			products.GET("/search", proxyHandler.ProxyToProductService)
 			products.GET("/:id", proxyHandler.ProxyToProductService)
 			products.GET("/:id/related", proxyHandler.ProxyToProductService)
+			products.GET("/:id/reviews", proxyHandler.ProxyToProductService)
+			products.POST("/:id/reviews", proxyHandler.ProxyToProductService)
 		}
 
 		// Public categories routes
@@ -118,7 +120,9 @@ func SetupRoutes(proxyHandler *ProxyHandler, jwtManager *auth.JWTManager) *gin.E
 			{
 				wishlist.GET("", proxyHandler.ProxyToUserService)
 				wishlist.POST("/items", proxyHandler.ProxyToUserService)
-				wishlist.DELETE("/items/:id", proxyHandler.ProxyToUserService)
+				wishlist.DELETE("/items/:product_id", proxyHandler.ProxyToUserService)
+				wishlist.DELETE("", proxyHandler.ProxyToUserService) // Clear wishlist
+				wishlist.POST("/move-to-cart", proxyHandler.ProxyToUserService)
 			}
 
 			// Admin routes

@@ -45,6 +45,7 @@ func main() {
 		&entity.Brand{},
 		&entity.ProductVariant{},
 		&entity.ProductImage{},
+		&entity.Review{},
 	); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
@@ -53,6 +54,7 @@ func main() {
 	productRepo := dbImpl.NewProductRepository(db)
 	categoryRepo := dbImpl.NewCategoryRepository(db)
 	brandRepo := dbImpl.NewBrandRepository(db)
+	reviewRepo := dbImpl.NewReviewRepository(db)
 
 	// Initialize JWT manager
 	jwtManager := auth.NewJWTManager()
@@ -61,14 +63,16 @@ func main() {
 	productService := service.NewProductService(productRepo, categoryRepo, brandRepo, nil, nil)
 	categoryService := service.NewCategoryService(categoryRepo)
 	brandService := service.NewBrandService(brandRepo)
+	reviewService := service.NewReviewService(reviewRepo, productRepo)
 
 	// Initialize handlers
 	productHandler := httpHandler.NewProductHandler(productService)
 	categoryHandler := httpHandler.NewCategoryHandler(categoryService)
 	brandHandler := httpHandler.NewBrandHandler(brandService)
+	reviewHandler := httpHandler.NewReviewHandler(reviewService)
 
 	// Setup routes
-	router := httpHandler.SetupRoutes(productHandler, categoryHandler, brandHandler, jwtManager)
+	router := httpHandler.SetupRoutes(productHandler, categoryHandler, brandHandler, reviewHandler, jwtManager)
 
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

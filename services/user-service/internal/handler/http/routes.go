@@ -5,7 +5,7 @@ import (
 	"solemate/pkg/auth"
 )
 
-func SetupRoutes(userHandler *UserHandler, jwtManager *auth.JWTManager) *gin.Engine {
+func SetupRoutes(userHandler *UserHandler, wishlistHandler *WishlistHandler, jwtManager *auth.JWTManager) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -37,6 +37,16 @@ func SetupRoutes(userHandler *UserHandler, jwtManager *auth.JWTManager) *gin.Eng
 			// User profile routes
 			protected.GET("/profile", userHandler.GetProfile)
 			protected.PUT("/profile", userHandler.UpdateProfile)
+
+			// Wishlist routes
+			wishlist := protected.Group("/wishlist")
+			{
+				wishlist.GET("", wishlistHandler.GetWishlist)
+				wishlist.POST("/items", wishlistHandler.AddItem)
+				wishlist.DELETE("/items/:product_id", wishlistHandler.RemoveItem)
+				wishlist.DELETE("", wishlistHandler.ClearWishlist)
+				wishlist.POST("/move-to-cart", wishlistHandler.MoveToCart) // Not implemented, frontend handles
+			}
 
 			// Admin only routes
 			admin := protected.Group("/")

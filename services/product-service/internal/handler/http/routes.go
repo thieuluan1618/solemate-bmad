@@ -5,7 +5,7 @@ import (
 	"solemate/pkg/auth"
 )
 
-func SetupRoutes(productHandler *ProductHandler, categoryHandler *CategoryHandler, brandHandler *BrandHandler, jwtManager *auth.JWTManager) *gin.Engine {
+func SetupRoutes(productHandler *ProductHandler, categoryHandler *CategoryHandler, brandHandler *BrandHandler, reviewHandler *ReviewHandler, jwtManager *auth.JWTManager) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
@@ -30,6 +30,9 @@ func SetupRoutes(productHandler *ProductHandler, categoryHandler *CategoryHandle
 			products.GET("/:id", productHandler.GetProduct)
 			products.GET("/slug/:slug", productHandler.GetProductBySlug)
 			products.GET("/:id/related", productHandler.GetRelatedProducts)
+
+			// Public review routes (no authentication for GET)
+			products.GET("/:id/reviews", reviewHandler.GetReviewsByProductID)
 		}
 
 		// Public category routes
@@ -49,10 +52,28 @@ func SetupRoutes(productHandler *ProductHandler, categoryHandler *CategoryHandle
 			brands.GET("/slug/:slug", brandHandler.GetBrandBySlug)
 		}
 
+		// Public review routes (no authentication for GET)
+		reviews := v1.Group("/reviews")
+		{
+			reviews.GET("/:id", reviewHandler.GetReview)
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("/")
 		protected.Use(AuthMiddleware(jwtManager))
 		{
+			// Review routes (authentication required for POST, PUT, DELETE)
+			protectedReviews := protected.Group("/products/:id/reviews")
+			{
+				protectedReviews.POST("", reviewHandler.CreateReview)
+			}
+
+			reviewsAuth := protected.Group("/reviews")
+			{
+				reviewsAuth.PUT("/:id", reviewHandler.UpdateReview)
+				reviewsAuth.DELETE("/:id", reviewHandler.DeleteReview)
+			}
+
 			// Admin only routes
 			admin := protected.Group("/admin")
 			admin.Use(AdminMiddleware())

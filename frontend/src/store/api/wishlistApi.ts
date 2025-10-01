@@ -8,6 +8,7 @@ export const wishlistApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getWishlist: builder.query<Wishlist, void>({
       query: () => '/wishlist',
+      transformResponse: (response: ApiResponse<Wishlist>) => response.data,
       providesTags: ['Wishlist'],
     }),
 
@@ -15,8 +16,9 @@ export const wishlistApi = apiSlice.injectEndpoints({
       query: (data) => ({
         url: '/wishlist/items',
         method: 'POST',
-        body: data,
+        body: { product_id: data.productId },
       }),
+      transformResponse: (response: ApiResponse<Wishlist>) => response.data,
       invalidatesTags: ['Wishlist'],
     }),
 
@@ -25,6 +27,7 @@ export const wishlistApi = apiSlice.injectEndpoints({
         url: `/wishlist/items/${productId}`,
         method: 'DELETE',
       }),
+      transformResponse: (response: ApiResponse<Wishlist>) => response.data,
       invalidatesTags: ['Wishlist'],
     }),
 

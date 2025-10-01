@@ -39,25 +39,28 @@ func main() {
 	}
 
 	// Auto-migrate database schema
-	if err := db.AutoMigrate(&entity.User{}, &entity.Address{}); err != nil {
+	if err := db.AutoMigrate(&entity.User{}, &entity.Address{}, &entity.WishlistItem{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
 	// Initialize repositories
 	userRepo := dbImpl.NewUserRepository(db)
 	addressRepo := dbImpl.NewAddressRepository(db)
+	wishlistRepo := dbImpl.NewWishlistRepository(db)
 
 	// Initialize JWT manager
 	jwtManager := auth.NewJWTManager()
 
 	// Initialize services
 	userService := service.NewUserService(userRepo, addressRepo, jwtManager)
+	wishlistService := service.NewWishlistService(wishlistRepo)
 
 	// Initialize handlers
 	userHandler := httpHandler.NewUserHandler(userService)
+	wishlistHandler := httpHandler.NewWishlistHandler(wishlistService)
 
 	// Setup routes
-	router := httpHandler.SetupRoutes(userHandler, jwtManager)
+	router := httpHandler.SetupRoutes(userHandler, wishlistHandler, jwtManager)
 
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
