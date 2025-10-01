@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import { Button, Input } from '@/components/ui'
 import { useGetCartQuery } from '@/store/api/cartApi'
+import { useCreateOrderMutation } from '@/store/api/orderApi'
 import { useAppSelector } from '@/hooks/redux'
 import { selectIsAuthenticated } from '@/store/slices/authSlice'
 import { addressSchema, type AddressFormData } from '@/lib/validations'
@@ -263,7 +264,7 @@ function OrderReview({ cart, shippingData, paymentData, onBack, onPlaceOrder, is
           {cart.items?.map((item: any) => (
             <div key={item.id} className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                {item.product.images?.[0] ? (
+                {item.product?.images?.[0] ? (
                   <img
                     src={item.product.images[0].url}
                     alt={item.product.name}
@@ -278,7 +279,7 @@ function OrderReview({ cart, shippingData, paymentData, onBack, onPlaceOrder, is
                 )}
               </div>
               <div className="flex-1">
-                <h3 className="font-medium text-gray-900">{item.product.name}</h3>
+                <h3 className="font-medium text-gray-900">{item.product?.name || 'Product'}</h3>
                 <p className="text-sm text-gray-500">
                   {item.size && `Size: ${item.size.name}`}
                   {item.size && item.color && ' • '}
@@ -288,7 +289,7 @@ function OrderReview({ cart, shippingData, paymentData, onBack, onPlaceOrder, is
               </div>
               <div className="text-right">
                 <p className="font-medium text-gray-900">
-                  ${(item.product.price * item.quantity).toFixed(2)}
+                  ${((item.product?.price || 0) * item.quantity).toFixed(2)}
                 </p>
               </div>
             </div>
@@ -374,6 +375,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const isAuthenticated = useAppSelector(selectIsAuthenticated)
   const { data: cart, isLoading: cartLoading } = useGetCartQuery()
+  const [createOrder] = useCreateOrderMutation()
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('shipping')
   const [shippingData, setShippingData] = useState<AddressFormData | null>(null)
@@ -389,7 +391,7 @@ export default function CheckoutPage() {
 
   // Redirect to cart if empty
   useEffect(() => {
-    if (cart && cart.itemCount === 0) {
+    if (cart && cart.total_items === 0) {
       router.push('/cart')
     }
   }, [cart, router])
@@ -405,25 +407,46 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = async () => {
+    if (!shippingData || !paymentData) {
+      alert('Please complete all checkout steps')
+      return
+    }
+
     setIsPlacingOrder(true)
     try {
-      // TODO: Implement actual order creation with real API
-      // For now, simulate successful order creation
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      const orderData = {
+        shipping_address: {
+          first_name: shippingData.firstName,
+          last_name: shippingData.lastName,
+          street_address: shippingData.street,
+          city: shippingData.city,
+          state: shippingData.state,
+          postal_code: shippingData.zipCode,
+          country: shippingData.country,
+        },
+        billing_address: {
+          first_name: shippingData.firstName,
+          last_name: shippingData.lastName,
+          street_address: shippingData.street,
+          city: shippingData.city,
+          state: shippingData.state,
+          postal_code: shippingData.zipCode,
+          country: shippingData.country,
+        },
+        shipping_method: paymentData.shippingMethod || 'standard',
+        notes: paymentData.notes || '',
+      }
 
-      // In a real implementation, you would:
-      // 1. Create order with the API
-      // 2. Get the order ID from the response
-      // 3. Store it for the confirmation page
+      const result = await createOrder(orderData as any).unwrap()
 
-      // Simulate order ID for demo
-      const simulatedOrderId = 'order_' + Date.now()
-      localStorage.setItem('lastOrderId', simulatedOrderId)
+      // Store order number for confirmation page
+      localStorage.setItem('lastOrderId', result.orderNumber)
 
       // Redirect to order confirmation
       router.push('/orders/confirmation')
-    } catch (error) {
-      alert('Failed to place order. Please try again.')
+    } catch (error: any) {
+      console.error('Order creation failed:', error)
+      alert(error?.data?.message || 'Failed to place order. Please try again.')
     } finally {
       setIsPlacingOrder(false)
     }

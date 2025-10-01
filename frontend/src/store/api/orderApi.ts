@@ -28,7 +28,11 @@ export const orderApi = apiSlice.injectEndpoints({
     }),
 
     getOrder: builder.query<Order, string>({
-      query: (id) => `/orders/${id}`,
+      query: (id) => {
+        // Check if id is a UUID (contains hyphens) or order number (starts with 'order_')
+        const isOrderNumber = id.startsWith('order_')
+        return isOrderNumber ? `/orders/number/${id}` : `/orders/${id}`
+      },
       providesTags: (result, error, id) => [{ type: 'Order', id }],
     }),
 

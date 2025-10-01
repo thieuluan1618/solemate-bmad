@@ -566,8 +566,8 @@ func (h *OrderHandler) RegisterRoutes(router *gin.RouterGroup, authMiddleware, a
 	orders.POST("", h.CreateOrder)
 	orders.GET("/me", h.GetUserOrders)
 	orders.GET("/me/summaries", h.GetUserOrderSummaries)
+	orders.GET("/number/:order_number", h.GetOrderByNumber) // Must be before /:order_id
 	orders.GET("/:order_id", h.GetOrder)
-	orders.GET("/number/:order_number", h.GetOrderByNumber)
 
 	// Order modification routes (user can modify pending/confirmed orders)
 	orders.PATCH("/:order_id/shipping-address", h.UpdateShippingAddress)
